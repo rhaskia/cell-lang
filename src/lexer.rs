@@ -63,7 +63,7 @@ impl Lexer {
                 '|' => {
                     if program.matches('|') {
                         tokens.push(Token::Or)
-                    } 
+                    }
                 }
 
                 '>' => {
@@ -82,11 +82,32 @@ impl Lexer {
                     }
                 }
 
+                '0'..='9' => {
+                    let number = String::from(vec![t]);
+                    while let Some(c) = program.peek() {
+                        if !(c.is_numeric() || c == '.' || c == '_') {
+                            break;
+                        }
+                        number.push(c);
+                    }
+                    Token::number(number)?
+                }
+
                 _ => {}
             };
         }
 
         tokens
+    }
+
+    pub fn number(string: String) -> Token {
+        let cleaned = string.replace("_", "");
+        let is_frac = string.contains('.');
+        if is_frac {
+            let parts = string.split(".");
+            if parts.len() > 2 { return self.error(); }
+
+        }
     }
 
     pub fn error(&self, msg: &str) -> String {
@@ -99,13 +120,13 @@ pub trait PeekMatch {
 }
 
 impl PeekMatch for Peekable<Chars<'_>> {
-   fn matches(&mut self, item: char) -> bool {
-       if self.peek() == Some(&&item) {
-           self.next();
-           return true;
-       } 
-       return false;
-   } 
+    fn matches(&mut self, item: char) -> bool {
+        if self.peek() == Some(&&item) {
+            self.next();
+            return true;
+        }
+        return false;
+    }
 }
 
 enum Token {
@@ -138,6 +159,12 @@ enum Token {
 
     String(String),
     Char(char),
+    Float(String, String),
+    Int(String),
+}
+
+impl Token {
+
 }
 
 enum Operator {}
