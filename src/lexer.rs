@@ -4,7 +4,7 @@ use std::iter::Peekable;
 
 type Error = String;
 
-struct Lexer {
+pub struct Lexer {
     line: usize,
     col: usize,
     current: usize,
@@ -12,8 +12,8 @@ struct Lexer {
 }
 
 impl Lexer {
-    pub fn new() -> Self {
-        Self { line: 0, col: 0, current: 0, program: String::new() }
+    pub fn new(program: String) -> Self {
+        Self { line: 0, col: 0, current: 0, program }
     }
 
     #[throws]
@@ -22,7 +22,7 @@ impl Lexer {
         let mut tokens = Vec::new();
 
         while let Some(token) = program.next() {
-            let t = match token {
+            match token {
                 ',' => tokens.push(Token::Comma),
                 ':' => tokens.push(Token::Colon),
                 ';' => tokens.push(Token::Semicolon),
@@ -83,14 +83,14 @@ impl Lexer {
                 }
 
                 '0'..='9' => {
-                    let number = String::from(vec![t]);
+                    let mut number = token.to_string();
                     while let Some(c) = program.peek() {
-                        if !(c.is_numeric() || c == '.' || c == '_') {
+                        if !(c.is_numeric() || *c == '.' || *c == '_') {
                             break;
                         }
-                        number.push(c);
+                        number.push(program.next().unwrap());
                     }
-                    Token::number(number)?
+                    tokens.push(self.number(number)?);
                 }
 
                 _ => {}
@@ -100,13 +100,16 @@ impl Lexer {
         tokens
     }
 
-    pub fn number(string: String) -> Token {
+    #[throws]
+    pub fn number(&self, string: String) -> Token {
         let cleaned = string.replace("_", "");
         let is_frac = string.contains('.');
         if is_frac {
-            let parts = string.split(".");
-            if parts.len() > 2 { return self.error(); }
-
+            let parts = cleaned.split(".").collect::<Vec<&str>>();
+            if parts.len() > 2 { Err(self.error("More than one decimal point found in number"))?; }
+            return Token::Float(parts[1].to_string(), parts[0].to_string());
+        } else {
+            return Token::Int(cleaned); 
         }
     }
 
@@ -129,7 +132,8 @@ impl PeekMatch for Peekable<Chars<'_>> {
     }
 }
 
-enum Token {
+#[derive(Debug)]
+pub enum Token {
     Comma,
     Colon,
     Semicolon,

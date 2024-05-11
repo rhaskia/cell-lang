@@ -1,5 +1,17 @@
 mod lexer;
 
 fn main() {
-    println!("Hello, world!");
+    let program = r#"
+        sys screen = (20, 20);
+        string text = "hi";
+        float i = 20.1;
+
+        f(x) {
+            text = "no";
+        }
+        "#;
+
+    let mut lexer = lexer::Lexer::new(program.to_string());
+    let tokens = lexer.scan_tokens();
+    println!("{tokens:?}")
 }
