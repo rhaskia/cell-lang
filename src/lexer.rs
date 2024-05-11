@@ -3,27 +3,28 @@ use fehler::throws;
 use std::iter::Peekable;
 use std::str::FromStr;
 use strum_macros::EnumString;
+use std::slice::Iter;
 
 type Error = String;
 
 pub struct Lexer {
     line: usize,
     col: usize,
-    current: usize,
-    program: String,
+    program: Vec<char>,
+    index: usize,
 }
 
 impl Lexer {
     pub fn new(program: String) -> Self {
-        Self { line: 0, col: 0, current: 0, program }
+        let program: Vec<char> = program.chars().collect();
+        Self { line: 1, col: 1, index: 0, program }
     }
 
     #[throws]
     pub fn scan_tokens(&mut self) -> Vec<Token> {
-        let mut program = self.program.chars().peekable();
         let mut tokens = Vec::new();
 
-        while let Some(token) = program.next() {
+        while let Ok(token) = self.next() {
             match token {
                 ',' => tokens.push(Token::Comma),
                 ':' => tokens.push(Token::Colon),
@@ -32,7 +33,6 @@ impl Lexer {
                 '-' => tokens.push(Token::Minus),
                 '+' => tokens.push(Token::Plus),
                 '*' => tokens.push(Token::Asterisk),
-                '/' => tokens.push(Token::Slash),
                 '^' => tokens.push(Token::Carat),
 
                 '{' => tokens.push(Token::OpenBrace),
@@ -44,18 +44,16 @@ impl Lexer {
 
                 '"' => {
                     let mut string = String::new();
-                    while program.peek().ok_or(self.error("EOF found while reading String"))?
-                        != &'"'
-                    {
-                        string.push(program.next().unwrap());
+                    while self.peek().unwrap() != '"' {
+                        string.push(self.next().unwrap());
                     }
-                    program.next();
+                    self.next();
                     tokens.push(Token::String(string));
                 }
 
                 '\'' => {
-                    let char = program.next().ok_or(self.error("Expected char, found EOF"))?;
-                    if let Some('\'') = program.next() {
+                    let char = self.next().unwrap();
+                    if let '\'' = self.next()? {
                         tokens.push(Token::Char(char));
                     } else {
                         Err(self.error("Char closing tag not found."))?;
@@ -63,13 +61,23 @@ impl Lexer {
                 }
 
                 '|' => {
-                    if program.matches('|') {
+                    if self.matches('|') {
                         tokens.push(Token::Or)
                     }
                 }
 
+                '/' => {
+                    if self.matches('/') {
+                        while self.peek_not('\n') {
+                            self.next();
+                        }
+                    } else {
+                        tokens.push(Token::Slash);
+                    }
+                }
+
                 '>' => {
-                    if program.matches('=') {
+                    if self.matches('=') {
                         tokens.push(Token::GreaterThan);
                     } else {
                         tokens.push(Token::Greater);
@@ -77,7 +85,7 @@ impl Lexer {
                 }
 
                 '<' => {
-                    if program.matches('=') {
+                    if self.matches('=') {
                         tokens.push(Token::LesserThan);
                     } else {
                         tokens.push(Token::Lesser);
@@ -85,7 +93,7 @@ impl Lexer {
                 }
 
                 '=' => {
-                    if program.matches('=') {
+                    if self.matches('=') {
                         tokens.push(Token::Equals);
                     } else {
                         tokens.push(Token::Define);
@@ -94,29 +102,26 @@ impl Lexer {
 
                 '0'..='9' => {
                     let mut number = token.to_string();
-                    while let Some(c) = program.peek() {
-                        if !(c.is_numeric() || *c == '.' || *c == '_') {
+                    while let Ok(c) = self.peek() {
+                        if !(c.is_numeric() || c == '.' || c == '_') {
                             break;
                         }
-                        number.push(program.next().unwrap());
+                        number.push(self.next().unwrap());
                     }
                     tokens.push(self.number(number)?);
                 }
 
-                'a'..='z' | 'A'..='Z' => {
+                'a'..='z' | 'A'..='Z' | '_' => {
                     let mut ident = token.to_string();
-                    while program
-                        .peek()
-                        .ok_or(self.error("EOF found while reading String"))?
-                        .is_alphabetic()
-                    {
-                        ident.push(program.next().unwrap());
+                    while let Ok(peeked) = self.peek() {
+                        if !is_alphanumeric(peeked) { break; }
+                        ident.push(self.next().unwrap());
                     }
 
                     match Keyword::from_str(&ident) {
                         Ok(keyword) => tokens.push(Token::Keyword(keyword)),
-                        Err(_) => tokens.push(Token::Identifier(ident))
-                    } 
+                        Err(_) => tokens.push(Token::Identifier(ident)),
+                    }
                 }
 
                 _ => {}
@@ -124,6 +129,45 @@ impl Lexer {
         }
 
         tokens
+    }
+
+    pub fn peek(&mut self) -> Result<char, String> {
+        let peeked = self.program.get(self.index + 1);
+        peeked.ok_or(self.error("EOF found unexpectedly")).copied()
+    }
+
+    pub fn peek_not(&mut self, c: char) -> bool {
+        match self.peek() {
+            Ok(peeked) if peeked != c => true,
+            _ => false,
+        }
+    }
+
+    pub fn next(&mut self) -> Result<char, String> {
+        self.col += 1;
+        self.index += 1;
+        let next_item_op = self.program.get(self.index).copied();
+        let next_item = match next_item_op {
+            Some(c) => c,
+            None => return Err(self.error("EOF found unexpectedly")),
+        };
+        if next_item == '\n' {
+            self.next_line();
+        }
+        Ok(next_item)
+    }
+
+    pub fn next_line(&mut self) {
+        self.line += 1;
+        self.col = 1;
+    }
+
+    pub fn matches(&mut self, item: char) -> bool {
+        if self.program.get(self.index + 1) == Some(&&item) {
+            self.next();
+            return true;
+        }
+        return false;
     }
 
     #[throws]
@@ -135,29 +179,26 @@ impl Lexer {
             if parts.len() > 2 {
                 Err(self.error("More than one decimal point found in number"))?;
             }
-            return Token::Float(parts[1].to_string(), parts[0].to_string());
+            Token::Float(parts[1].to_string(), parts[0].to_string())
         } else {
-            return Token::Int(cleaned);
+            Token::Int(cleaned)
         }
     }
 
     pub fn error(&self, msg: &str) -> String {
-        format!("Error on {}:{}: {}", self.line, self.col, msg)
+        let program = self.program.iter().collect::<String>();
+        let mut lines = program.lines();
+        let err_line = lines.nth(self.line - 1).unwrap_or("Out of bounds");
+
+        format!("Error on {}:{}: {}\non line: {}", self.line, self.col, msg, err_line)
     }
 }
 
-pub trait PeekMatch {
-    fn matches(&mut self, item: char) -> bool;
-}
-
-impl PeekMatch for Peekable<Chars<'_>> {
-    fn matches(&mut self, item: char) -> bool {
-        if self.peek() == Some(&&item) {
-            self.next();
-            return true;
-        }
-        return false;
+fn is_alphanumeric(c: char) -> bool {
+    if c == '_' {
+        return true;
     }
+    c.is_alphanumeric()
 }
 
 #[derive(Debug)]
