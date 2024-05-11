@@ -6,7 +6,7 @@ fn main() {
         string text = "hi";
         float i = 20.1;
 
-        f(x) {
+        main(x) {
             text = "no";
         }
         "#;

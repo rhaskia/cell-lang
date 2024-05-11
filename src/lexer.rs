@@ -1,6 +1,8 @@
 use core::str::Chars;
 use fehler::throws;
 use std::iter::Peekable;
+use std::str::FromStr;
+use strum_macros::EnumString;
 
 type Error = String;
 
@@ -82,6 +84,14 @@ impl Lexer {
                     }
                 }
 
+                '=' => {
+                    if program.matches('=') {
+                        tokens.push(Token::Equals);
+                    } else {
+                        tokens.push(Token::Define);
+                    }
+                }
+
                 '0'..='9' => {
                     let mut number = token.to_string();
                     while let Some(c) = program.peek() {
@@ -91,6 +101,22 @@ impl Lexer {
                         number.push(program.next().unwrap());
                     }
                     tokens.push(self.number(number)?);
+                }
+
+                'a'..='z' | 'A'..='Z' => {
+                    let mut ident = token.to_string();
+                    while program
+                        .peek()
+                        .ok_or(self.error("EOF found while reading String"))?
+                        .is_alphabetic()
+                    {
+                        ident.push(program.next().unwrap());
+                    }
+
+                    match Keyword::from_str(&ident) {
+                        Ok(keyword) => tokens.push(Token::Keyword(keyword)),
+                        Err(_) => tokens.push(Token::Identifier(ident))
+                    } 
                 }
 
                 _ => {}
@@ -106,10 +132,12 @@ impl Lexer {
         let is_frac = string.contains('.');
         if is_frac {
             let parts = cleaned.split(".").collect::<Vec<&str>>();
-            if parts.len() > 2 { Err(self.error("More than one decimal point found in number"))?; }
+            if parts.len() > 2 {
+                Err(self.error("More than one decimal point found in number"))?;
+            }
             return Token::Float(parts[1].to_string(), parts[0].to_string());
         } else {
-            return Token::Int(cleaned); 
+            return Token::Int(cleaned);
         }
     }
 
@@ -165,10 +193,19 @@ pub enum Token {
     Char(char),
     Float(String, String),
     Int(String),
+
+    Keyword(Keyword),
+    Identifier(String),
 }
 
-impl Token {
-
+#[derive(Debug, PartialEq, EnumString)]
+#[strum(serialize_all = "snake_case")]
+pub enum Keyword {
+    Rule,
+    Any,
+    Sys,
+    Float,
+    Int,
+    String,
+    Char,
 }
-
-enum Operator {}
