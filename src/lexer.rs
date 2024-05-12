@@ -1,9 +1,6 @@
-use core::str::Chars;
 use fehler::throws;
-use std::iter::Peekable;
 use std::str::FromStr;
-use strum_macros::EnumString;
-use std::slice::Iter;
+use strum_macros::{EnumIs, EnumString};
 
 type Error = String;
 
@@ -21,26 +18,26 @@ impl Lexer {
     }
 
     #[throws]
-    pub fn scan_tokens(&mut self) -> Vec<Token> {
+    pub fn scan_tokens(&mut self) -> Vec<TokenWrapper> {
         let mut tokens = Vec::new();
 
         while let Ok(token) = self.next() {
             match token {
-                ',' => tokens.push(Token::Comma),
-                ':' => tokens.push(Token::Colon),
-                ';' => tokens.push(Token::Semicolon),
+                ',' => tokens.push(self.wrap(Token::Comma)),
+                ':' => tokens.push(self.wrap(Token::Colon)),
+                ';' => tokens.push(self.wrap(Token::Semicolon)),
 
-                '-' => tokens.push(Token::Minus),
-                '+' => tokens.push(Token::Plus),
-                '*' => tokens.push(Token::Asterisk),
-                '^' => tokens.push(Token::Carat),
+                '-' => tokens.push(self.wrap(Token::Minus)),
+                '+' => tokens.push(self.wrap(Token::Plus)),
+                '*' => tokens.push(self.wrap(Token::Asterisk)),
+                '^' => tokens.push(self.wrap(Token::Carat)),
 
-                '{' => tokens.push(Token::OpenBrace),
-                '}' => tokens.push(Token::CloseBrace),
-                '[' => tokens.push(Token::OpenBracket),
-                ']' => tokens.push(Token::CloseBracket),
-                '(' => tokens.push(Token::OpenParen),
-                ')' => tokens.push(Token::CloseParen),
+                '{' => tokens.push(self.wrap(Token::OpenBrace)),
+                '}' => tokens.push(self.wrap(Token::CloseBrace)),
+                '[' => tokens.push(self.wrap(Token::OpenBracket)),
+                ']' => tokens.push(self.wrap(Token::CloseBracket)),
+                '(' => tokens.push(self.wrap(Token::OpenParen)),
+                ')' => tokens.push(self.wrap(Token::CloseParen)),
 
                 '"' => {
                     let mut string = String::new();
@@ -48,13 +45,13 @@ impl Lexer {
                         string.push(self.next().unwrap());
                     }
                     self.next();
-                    tokens.push(Token::String(string));
+                    tokens.push(self.wrap(Token::String(string)));
                 }
 
                 '\'' => {
                     let char = self.next().unwrap();
                     if let '\'' = self.next()? {
-                        tokens.push(Token::Char(char));
+                        tokens.push(self.wrap(Token::Char(char)));
                     } else {
                         Err(self.error("Char closing tag not found."))?;
                     }
@@ -62,7 +59,7 @@ impl Lexer {
 
                 '|' => {
                     if self.matches('|') {
-                        tokens.push(Token::Or)
+                        tokens.push(self.wrap(Token::Or))
                     }
                 }
 
@@ -72,31 +69,31 @@ impl Lexer {
                             self.next();
                         }
                     } else {
-                        tokens.push(Token::Slash);
+                        tokens.push(self.wrap(Token::Slash));
                     }
                 }
 
                 '>' => {
                     if self.matches('=') {
-                        tokens.push(Token::GreaterThan);
+                        tokens.push(self.wrap(Token::GreaterThan));
                     } else {
-                        tokens.push(Token::Greater);
+                        tokens.push(self.wrap(Token::Greater));
                     }
                 }
 
                 '<' => {
                     if self.matches('=') {
-                        tokens.push(Token::LesserThan);
+                        tokens.push(self.wrap(Token::LesserThan));
                     } else {
-                        tokens.push(Token::Lesser);
+                        tokens.push(self.wrap(Token::Lesser));
                     }
                 }
 
                 '=' => {
                     if self.matches('=') {
-                        tokens.push(Token::Equals);
+                        tokens.push(self.wrap(Token::Equals));
                     } else {
-                        tokens.push(Token::Define);
+                        tokens.push(self.wrap(Token::Define));
                     }
                 }
 
@@ -108,7 +105,7 @@ impl Lexer {
                         }
                         number.push(self.next().unwrap());
                     }
-                    tokens.push(self.number(number)?);
+                    tokens.push(self.wrap(self.number(number)?));
                 }
 
                 'a'..='z' | 'A'..='Z' | '_' => {
@@ -119,8 +116,8 @@ impl Lexer {
                     }
 
                     match Keyword::from_str(&ident) {
-                        Ok(keyword) => tokens.push(Token::Keyword(keyword)),
-                        Err(_) => tokens.push(Token::Identifier(ident)),
+                        Ok(keyword) => tokens.push(self.wrap(Token::Keyword(keyword))),
+                        Err(_) => tokens.push(self.wrap(Token::Identifier(ident))),
                     }
                 }
 
@@ -129,6 +126,10 @@ impl Lexer {
         }
 
         tokens
+    }
+
+    pub fn wrap(&self, token: Token) -> TokenWrapper {
+        TokenWrapper { token, line: self.line, col: self.col }
     }
 
     pub fn peek(&mut self) -> Result<char, String> {
@@ -201,7 +202,7 @@ fn is_alphanumeric(c: char) -> bool {
     c.is_alphanumeric()
 }
 
-#[derive(Debug)]
+#[derive(Debug, EnumIs, Clone)]
 pub enum Token {
     Comma,
     Colon,
@@ -239,7 +240,7 @@ pub enum Token {
     Identifier(String),
 }
 
-#[derive(Debug, PartialEq, EnumString)]
+#[derive(Debug, PartialEq, EnumString, Clone)]
 #[strum(serialize_all = "snake_case")]
 pub enum Keyword {
     Rule,
@@ -249,4 +250,11 @@ pub enum Keyword {
     Int,
     String,
     Char,
+}
+
+#[derive(Debug)]
+pub struct TokenWrapper {
+    pub token: Token,
+    pub line: usize,
+    pub col: usize,
 }
