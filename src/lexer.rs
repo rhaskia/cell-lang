@@ -1,4 +1,5 @@
 use fehler::throws;
+use macros::{match_tokens, match_two};
 use std::str::FromStr;
 use strum_macros::{EnumIs, EnumString};
 
@@ -39,13 +40,19 @@ impl Lexer {
                 '(' => tokens.push(self.wrap(Token::OpenParen)),
                 ')' => tokens.push(self.wrap(Token::CloseParen)),
 
+                '&' => match_two!(self, tokens, '&', And),
+                '|' => match_two!(self, tokens, '|', Or),
+                '>' => match_tokens!(self, tokens, Greater, '=' => GreaterThan),
+                '<' => match_tokens!(self, tokens, Lesser, '=' => LesserThan),
+                '=' => match_tokens!(self, tokens, Define, '=' => Equals, '>' => Arrow),
+
                 '"' => {
                     let mut string = String::new();
                     while self.peek().unwrap() != '"' {
                         string.push(self.next().unwrap());
                     }
-                    self.next();
-                    tokens.push(self.wrap(Token::String(string)));
+                    let _ = self.next();
+                    tokens.push(self.wrap(Token::Str(string)));
                 }
 
                 '\'' => {
@@ -57,43 +64,13 @@ impl Lexer {
                     }
                 }
 
-                '|' => {
-                    if self.matches('|') {
-                        tokens.push(self.wrap(Token::Or))
-                    }
-                }
-
                 '/' => {
                     if self.matches('/') {
                         while self.peek_not('\n') {
-                            self.next();
+                            let _ = self.next();
                         }
                     } else {
                         tokens.push(self.wrap(Token::Slash));
-                    }
-                }
-
-                '>' => {
-                    if self.matches('=') {
-                        tokens.push(self.wrap(Token::GreaterThan));
-                    } else {
-                        tokens.push(self.wrap(Token::Greater));
-                    }
-                }
-
-                '<' => {
-                    if self.matches('=') {
-                        tokens.push(self.wrap(Token::LesserThan));
-                    } else {
-                        tokens.push(self.wrap(Token::Lesser));
-                    }
-                }
-
-                '=' => {
-                    if self.matches('=') {
-                        tokens.push(self.wrap(Token::Equals));
-                    } else {
-                        tokens.push(self.wrap(Token::Define));
                     }
                 }
 
@@ -111,7 +88,9 @@ impl Lexer {
                 'a'..='z' | 'A'..='Z' | '_' => {
                     let mut ident = token.to_string();
                     while let Ok(peeked) = self.peek() {
-                        if !is_alphanumeric(peeked) { break; }
+                        if !is_alphanumeric(peeked) {
+                            break;
+                        }
                         ident.push(self.next().unwrap());
                     }
 
@@ -180,7 +159,7 @@ impl Lexer {
             if parts.len() > 2 {
                 Err(self.error("More than one decimal point found in number"))?;
             }
-            Token::Float(parts[1].to_string(), parts[0].to_string())
+            Token::Float(parts[0].to_string(), parts[1].to_string())
         } else {
             Token::Int(cleaned)
         }
@@ -202,7 +181,7 @@ fn is_alphanumeric(c: char) -> bool {
     c.is_alphanumeric()
 }
 
-#[derive(Debug, EnumIs, Clone)]
+#[derive(Debug, EnumIs, Clone, strum_macros::Display, PartialEq)]
 pub enum Token {
     Comma,
     Colon,
@@ -222,16 +201,19 @@ pub enum Token {
     CloseParen,
 
     Define,
+    Arrow,
 
     Or,
     And,
+    Not,
     Equals,
+    NotEquals,
     Greater,
     Lesser,
     GreaterThan,
     LesserThan,
 
-    String(String),
+    Str(String),
     Char(char),
     Float(String, String),
     Int(String),
@@ -243,8 +225,8 @@ pub enum Token {
 #[derive(Debug, PartialEq, EnumString, Clone)]
 #[strum(serialize_all = "snake_case")]
 pub enum Keyword {
+    Fun,
     Rule,
-    Any,
     Sys,
     Float,
     Int,
@@ -257,4 +239,36 @@ pub struct TokenWrapper {
     pub token: Token,
     pub line: usize,
     pub col: usize,
+}
+
+pub mod macros {
+    macro_rules! match_tokens {
+        ($s:ident, $tokens:expr, $base_token:ident, $($extra_char:literal => $extra_token:ident),*) => {
+            {
+                let mut base = true;
+                $(
+                    if $s.matches($extra_char) {
+                        $tokens.push($s.wrap(Token::$extra_token));
+                        base = false;
+                    }
+                )*
+                if base {
+                    $tokens.push($s.wrap(Token::$base_token));
+                }
+            }
+        }
+    }
+
+    macro_rules! match_two {
+        ($s:ident, $tokens:expr, $add_char:expr, $token:ident) => {
+            {
+                if $s.matches($add_char) {
+                    $tokens.push($s.wrap(Token::$token))
+                }
+            }
+        }
+    }
+
+    pub(crate) use match_tokens;
+    pub(crate) use match_two;
 }
