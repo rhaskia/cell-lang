@@ -1,5 +1,5 @@
 use crate::ast::Node;
-use crate::lexer::{Token, TokenWrapper};
+use crate::lexer::{Token, TokenWrapper, Keyword};
 use fehler::throws;
 
 type Error = String;
@@ -14,8 +14,8 @@ impl Parser {
         Self { tokens, index: 0 }
     }
 
-    pub fn error(token: &TokenWrapper, msg: &str) -> Error {
-        format!("Syntax Error on {}:{}: {}", token.line, token.col, msg)
+    pub fn error(token: &TokenWrapper, msg: &str) -> Result<Node, Error> {
+        Err(format!("Syntax Error on {}:{}: {}", token.line, token.col, msg))
     }
 
     pub fn parse(&mut self) -> Vec<Node> {
@@ -24,7 +24,7 @@ impl Parser {
         ast
     }
 
-    pub fn op_order(token: Token) -> usize {
+    pub fn op_order(token: &Token) -> usize {
         use Token::*;
         match token {
             Lesser | LesserThan | Greater | GreaterThan | Or | And | NotEquals | Equals => 0,
@@ -34,27 +34,51 @@ impl Parser {
         }
     }
 
-    pub fn is_op(token: Token) -> bool {
+    pub fn is_op(token: &Token) -> bool {
         Self::op_order(token) < 50
     }
 
     #[throws]
     pub fn expr(&mut self) -> Node {
         let left = self.simple()?;
-        if Self::is_op(self.peek()?.token) {
-            let op = self.next()?.token;
+
+        if Self::is_op(&self.peek()?.token) {
+            let op = self.next()?.token.clone();
             let right = self.expr()?;
-            if let Node::Binary { left: r_left, op: r_op, right: r_right } = right {
-                return Node::Binary { left, op, right }
+
+            // ordering switching
+            if let Node::Binary { left: ref r_left, op: ref r_op, right: ref r_right } = right {
+                if Self::op_order(&op) > Self::op_order(r_op) {
+                    return Node::new_binary( 
+                        Node::new_binary(left, op, *r_left.clone()),
+                        r_op.clone(),
+                        *r_right.clone()
+                    );
+                }
             }
-            return Node::Binary { left, op, right }
+
+            return Node::new_binary(left, op, right);
         }
 
         left
     }
 
-    pub fn statement(&mut self) -> Result<Node, String> {
-        match self.peek() {
+    #[throws]
+    fn func_statement(&mut self) -> Node {
+        let next = self.next()?;
+        let name = if let Token::Identifier(ident) = next.token {
+            ident
+        } else { 
+            self::error(&next, &format!("Expected identifier got {}", next.token))?
+        };
+
+
+    }
+
+    #[throws]
+    pub fn statement(&mut self) -> Node {
+        match self.next()?.token {
+            Token::Keyword(Keyword::Fn) => self.func_statement(),
             _ => self.expr(),
         }
     }
@@ -74,7 +98,8 @@ impl Parser {
                 Node::Array(items)
             }
             Token::Identifier(ident) => Node::Variable(ident.clone()),
-            _ => Err(Self::error(token, &format!("Expected expression but got {}", token.token)))?,
+            Token::OpenParen => self.expr()?,
+            _ => Self::error(token, &format!("Expected expression but got {}", token.token))?,
         }
     }
 
@@ -82,8 +107,8 @@ impl Parser {
     pub fn expr_list(&mut self) -> Vec<Node> {
         let mut exprs = Vec::new();
         exprs.push(self.expr()?);
-        while self.peek().token == Token::Comma {
-            self.next();
+        while self.peek()?.token == Token::Comma {
+            self.next()?;
             exprs.push(self.expr()?);
         }
         exprs

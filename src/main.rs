@@ -19,7 +19,11 @@ fn main() {
             _ s _
         }
 
-        update {
+        fn scramble(x, s) => (float, string) { 
+
+        }
+
+        fn update {
             text = "no";
         }"#;
 
