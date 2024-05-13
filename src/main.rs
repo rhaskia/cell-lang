@@ -33,5 +33,8 @@ fn main() {
     println!("{program}");
     let mut lexer = lexer::Lexer::new(test.to_string());
     let tokens = lexer.scan_tokens();
-    println!("{tokens:?}")
+    println!("{tokens:?}");
+    let mut parser = parser::Parser::new(tokens.unwrap());
+    let ast = parser.parse();
+    println!("{ast:?}");
 }

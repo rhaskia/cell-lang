@@ -1,17 +1,17 @@
-use fehler::throws;
 use crate::ast::Node;
-use crate::lexer::{TokenWrapper, Token};
+use crate::lexer::{Token, TokenWrapper};
+use fehler::throws;
 
 type Error = String;
 
-struct Parser {
+pub struct Parser {
     tokens: Vec<TokenWrapper>,
     index: usize,
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<TokenWrapper>) {
-        
+    pub fn new(tokens: Vec<TokenWrapper>) -> Self {
+        Self { tokens, index: 0 }
     }
 
     pub fn error(token: &TokenWrapper, msg: &str) -> Error {
@@ -21,21 +21,34 @@ impl Parser {
     pub fn parse(&mut self) -> Vec<Node> {
         let ast = Vec::new();
 
-
         ast
     }
 
     pub fn op_order(token: Token) -> usize {
         use Token::*;
         match token {
-            Lesser | LesserThan | Greater | GreaterThan |
-                Or | And | NotEquals | Equals => 0,
+            Lesser | LesserThan | Greater | GreaterThan | Or | And | NotEquals | Equals => 0,
             Plus | Minus => 1,
             Asterisk | Slash => 2,
             _ => 100,
         }
-    }    pub fn expr(&mut self) -> Result<Node, String> {
-        let left = self.simple();
+    }
+
+    pub fn is_op(token: Token) -> bool {
+        Self::op_order(token) < 50
+    }
+
+    #[throws]
+    pub fn expr(&mut self) -> Node {
+        let left = self.simple()?;
+        if Self::is_op(self.peek()?.token) {
+            let op = self.next()?.token;
+            let right = self.expr()?;
+            if let Node::Binary { left: r_left, op: r_op, right: r_right } = right {
+                return Node::Binary { left, op, right }
+            }
+            return Node::Binary { left, op, right }
+        }
 
         left
     }
@@ -48,22 +61,20 @@ impl Parser {
 
     #[throws]
     pub fn simple(&mut self) -> Node {
-        let token = self.next();
+        let token = self.next()?;
         match &token.token {
             Token::Str(_) | Token::Float(_, _) | Token::Int(_) => {
                 Node::Literal(token.token.clone())
             }
             Token::OpenBracket => {
                 let mut items = Vec::new();
-                if !self.peek().token.is_close_bracket() {
+                if !self.peek()?.token.is_close_bracket() {
                     items = self.expr_list()?;
                 }
                 Node::Array(items)
             }
-            Token::Identifier(ident) => {
-                Node::Variable(ident.clone())
-            }
-            _ => Err(Self::error(token, &format!("Expected expression but got {}", token.token)))?
+            Token::Identifier(ident) => Node::Variable(ident.clone()),
+            _ => Err(Self::error(token, &format!("Expected expression but got {}", token.token)))?,
         }
     }
 
@@ -74,17 +85,16 @@ impl Parser {
         while self.peek().token == Token::Comma {
             self.next();
             exprs.push(self.expr()?);
-        } 
+        }
         exprs
     }
 
-    pub fn peek(&mut self) -> &TokenWrapper {
-        &self.tokens[self.index + 1]
+    pub fn peek(&mut self) -> Result<&TokenWrapper, String> {
+        self.tokens.get(self.index + 1).ok_or(String::from("Token expected, EOF found"))
     }
 
-    pub fn next(&mut self) -> &TokenWrapper {
+    pub fn next(&mut self) -> Result<&TokenWrapper, String> {
         self.index += 1;
-        &self.tokens[self.index]
+        self.tokens.get(self.index).ok_or(String::from("Token expected, EOF found"))
     }
 }
-
