@@ -1,4 +1,4 @@
-use crate::lexer::Token;
+use crate::lexer::{Token, Keyword};
 
 #[derive(Debug, Clone)]
 pub enum Node {
@@ -6,7 +6,10 @@ pub enum Node {
     Array(Vec<Node>),
     Variable(String),
     Type,
-    Binary { left: Box<Node>, op: Token, right: Box<Node>, }
+    Binary { left: Box<Node>, op: Token, right: Box<Node>, },
+    Function { name: String, params: Vec<String>, body: Vec<Node> },
+    Return(Box<Node>),
+    Definition { name: String, var_type: Keyword, value: Box<Node> },
 }
 
 impl Node {

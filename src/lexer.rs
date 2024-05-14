@@ -2,6 +2,7 @@ use fehler::throws;
 use macros::{match_tokens, match_two};
 use std::str::FromStr;
 use strum_macros::{EnumIs, EnumString};
+use std::ops::{Deref, DerefMut};
 
 type Error = String;
 
@@ -232,6 +233,9 @@ pub enum Keyword {
     Int,
     String,
     Char,
+    Return,
+    For,
+    In,
 }
 
 #[derive(Debug)]
@@ -239,6 +243,19 @@ pub struct TokenWrapper {
     pub token: Token,
     pub line: usize,
     pub col: usize,
+}
+
+impl Deref for TokenWrapper {
+    type Target = Token;
+    fn deref(&self) -> &Token {
+        &self.token
+    }
+}
+
+impl DerefMut for TokenWrapper {
+    fn deref_mut(&mut self) -> &mut Token {
+        &mut self.token
+    }
 }
 
 pub mod macros {

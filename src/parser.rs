@@ -14,12 +14,17 @@ impl Parser {
         Self { tokens, index: 0 }
     }
 
-    pub fn error(token: &TokenWrapper, msg: &str) -> Result<Node, Error> {
-        Err(format!("Syntax Error on {}:{}: {}", token.line, token.col, msg))
+    pub fn error<T>(token: &TokenWrapper, msg: &str) -> Result<T, Error> {
+        Result::Err(format!("Syntax Error on {}:{}: {}", token.line, token.col, msg))
     }
 
+    #[throws]
     pub fn parse(&mut self) -> Vec<Node> {
-        let ast = Vec::new();
+        let mut ast = Vec::new();
+
+        while self.peek().is_ok() {
+            ast.push(self.statement()?);
+        } 
 
         ast
     }
@@ -66,21 +71,57 @@ impl Parser {
     #[throws]
     fn func_statement(&mut self) -> Node {
         let next = self.next()?;
-        let name = if let Token::Identifier(ident) = next.token {
-            ident
-        } else { 
-            self::error(&next, &format!("Expected identifier got {}", next.token))?
-        };
+        let name = self.next_ident()?;
 
+        let mut params = Vec::new();
+        if self.peek()?.is_open_paren() {
+            self.next()?;
+            params = self.identifier_list()?;
+            self.next_ensure(Token::CloseParen)?;
+        }
 
+        self.next_ensure(Token::OpenBrace)?; 
+        let mut body = Vec::new();
+        while !self.peek()?.is_close_brace() {
+            body.push(self.statement()?);
+        }
+
+        Node::Function { name, params, body }
+    }
+
+    #[throws]
+    pub fn identifier_list(&mut self) -> Vec<String> {
+        let mut idents = Vec::new();
+
+        idents.push(self.next_ident()?);
+        while self.peek()?.is_comma() {
+            self.next()?;
+            idents.push(self.next_ident()?);
+        }
+
+        idents
     }
 
     #[throws]
     pub fn statement(&mut self) -> Node {
-        match self.next()?.token {
-            Token::Keyword(Keyword::Fn) => self.func_statement(),
-            _ => self.expr(),
+        let next = self.next()?.token.clone();
+        println!("{next:?}");
+        match &next {
+            Token::Keyword(Keyword::Fn) => self.func_statement()?,
+            Token::Keyword(Keyword::Return) => Node::Return(Box::new(self.expr()?)),
+            Token::Keyword(var_type) => self.variable(var_type.clone())?,
+            _ => self.expr()?,
         }
+    }
+
+    #[throws]
+    pub fn variable(&mut self, var_type: Keyword) -> Node {
+        let name = self.next_ident()?;
+        println!("var{name:?}");
+        self.next_ensure(Token::Define)?;
+        let value = Box::new(self.expr()?);
+
+        Node::Definition { name, var_type, value }
     }
 
     #[throws]
@@ -116,6 +157,23 @@ impl Parser {
 
     pub fn peek(&mut self) -> Result<&TokenWrapper, String> {
         self.tokens.get(self.index + 1).ok_or(String::from("Token expected, EOF found"))
+    }
+
+    pub fn next_ensure(&mut self, token: Token) -> Result<&TokenWrapper, String> {
+        let next = self.next()?;
+        if next.token != token {
+            return Self::error(next, &format!("Expected {token:?} found {:?}", next.token));
+        }
+        Ok(next)
+    }
+
+    pub fn next_ident(&mut self) -> Result<String, String> {
+        let next = self.next()?;
+        if let Token::Identifier(ident) = &next.token {
+            Ok(ident.clone())
+        } else {
+            Self::error(next, &format!("Exptected identifier found {:?}", next.token))
+        }
     }
 
     pub fn next(&mut self) -> Result<&TokenWrapper, String> {
