@@ -4,19 +4,36 @@ use std::str::FromStr;
 use strum_macros::{EnumIs, EnumString};
 use std::ops::{Deref, DerefMut};
 
-type Error = String;
+#[derive(Debug)]
+pub struct Error {
+    pub msg: String,
+    pub start: Position,
+    pub end: Position,
+}
 
 pub struct Lexer {
-    line: usize,
-    col: usize,
+    current: Position,
+    token_start: Position,
     program: Vec<char>,
     index: usize,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Position {
+    pub line: usize,
+    pub col: usize,
+}
+
+impl Position {
+    pub fn new() -> Self {
+        Self { line: 1, col: 1 }
+    }
 }
 
 impl Lexer {
     pub fn new(program: String) -> Self {
         let program: Vec<char> = program.chars().collect();
-        Self { line: 1, col: 1, index: 0, program }
+        Self { current: Position::new(), token_start: Position::new(), index: 0, program }
     }
 
     #[throws]
@@ -24,6 +41,7 @@ impl Lexer {
         let mut tokens = Vec::new();
 
         while let Ok(token) = self.next() {
+            self.token_start = self.current;
             match token {
                 ',' => tokens.push(self.wrap(Token::Comma)),
                 ':' => tokens.push(self.wrap(Token::Colon)),
@@ -61,7 +79,7 @@ impl Lexer {
                     if let '\'' = self.next()? {
                         tokens.push(self.wrap(Token::Char(char)));
                     } else {
-                        Err(self.error("Char closing tag not found."))?;
+                        self.error("Char closing tag not found.")?;
                     }
                 }
 
@@ -109,12 +127,15 @@ impl Lexer {
     }
 
     pub fn wrap(&self, token: Token) -> TokenWrapper {
-        TokenWrapper { token, line: self.line, col: self.col }
+        TokenWrapper { token, start: self.token_start, end: self.current }
     }
 
-    pub fn peek(&mut self) -> Result<char, String> {
+    pub fn peek(&mut self) -> Result<char, Error> {
         let peeked = self.program.get(self.index + 1);
-        peeked.ok_or(self.error("EOF found unexpectedly")).copied()
+        match peeked {
+            Some(p) => Ok(*p),
+            None => self.error("EOF found unexpectedly"),
+        }
     }
 
     pub fn peek_not(&mut self, c: char) -> bool {
@@ -124,13 +145,13 @@ impl Lexer {
         }
     }
 
-    pub fn next(&mut self) -> Result<char, String> {
-        self.col += 1;
+    pub fn next(&mut self) -> Result<char, Error> {
+        self.current.col += 1;
         self.index += 1;
         let next_item_op = self.program.get(self.index).copied();
         let next_item = match next_item_op {
             Some(c) => c,
-            None => return Err(self.error("EOF found unexpectedly")),
+            None => self.error("EOF found unexpectedly")?,
         };
         if next_item == '\n' {
             self.next_line();
@@ -139,8 +160,8 @@ impl Lexer {
     }
 
     pub fn next_line(&mut self) {
-        self.line += 1;
-        self.col = 1;
+        self.current.line += 1;
+        self.current.col = 1;
     }
 
     pub fn matches(&mut self, item: char) -> bool {
@@ -158,7 +179,7 @@ impl Lexer {
         if is_frac {
             let parts = cleaned.split(".").collect::<Vec<&str>>();
             if parts.len() > 2 {
-                Err(self.error("More than one decimal point found in number"))?;
+                self.error("More than one decimal point found in number")?;
             }
             Token::Float(parts[0].to_string(), parts[1].to_string())
         } else {
@@ -166,12 +187,8 @@ impl Lexer {
         }
     }
 
-    pub fn error(&self, msg: &str) -> String {
-        let program = self.program.iter().collect::<String>();
-        let mut lines = program.lines();
-        let err_line = lines.nth(self.line - 1).unwrap_or("Out of bounds");
-
-        format!("Error on {}:{}: {}\non line: {}", self.line, self.col, msg, err_line)
+    pub fn error<T>(&self, msg: &str) -> Result<T, Error> {
+        Err(Error { msg: msg.to_string(), start: self.token_start, end: self.current })
     }
 }
 
@@ -241,8 +258,8 @@ pub enum Keyword {
 #[derive(Debug)]
 pub struct TokenWrapper {
     pub token: Token,
-    pub line: usize,
-    pub col: usize,
+    pub start: Position,
+    pub end: Position,
 }
 
 impl Deref for TokenWrapper {

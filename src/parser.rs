@@ -1,8 +1,6 @@
 use crate::ast::Node;
-use crate::lexer::{Token, TokenWrapper, Keyword};
+use crate::lexer::{Token, TokenWrapper, Keyword, Error, Position};
 use fehler::throws;
-
-type Error = String;
 
 pub struct Parser {
     tokens: Vec<TokenWrapper>,
@@ -15,7 +13,11 @@ impl Parser {
     }
 
     pub fn error<T>(token: &TokenWrapper, msg: &str) -> Result<T, Error> {
-        Result::Err(format!("Syntax Error on {}:{}: {}", token.line, token.col, msg))
+        Err(Error { msg: msg.to_string(), start: token.start, end: token.end })
+    }
+
+    pub fn eof_error(msg: &str) -> Error {
+        Error { msg: msg.to_string(), start: Position::new(), end: Position::new() }
     }
 
     #[throws]
@@ -24,6 +26,7 @@ impl Parser {
 
         while self.peek().is_ok() {
             ast.push(self.statement()?);
+            println!("{ast:?}");
         } 
 
         ast
@@ -70,7 +73,6 @@ impl Parser {
 
     #[throws]
     fn func_statement(&mut self) -> Node {
-        let next = self.next()?;
         let name = self.next_ident()?;
 
         let mut params = Vec::new();
@@ -105,7 +107,6 @@ impl Parser {
     #[throws]
     pub fn statement(&mut self) -> Node {
         let next = self.next()?.token.clone();
-        println!("{next:?}");
         match &next {
             Token::Keyword(Keyword::Fn) => self.func_statement()?,
             Token::Keyword(Keyword::Return) => Node::Return(Box::new(self.expr()?)),
@@ -117,9 +118,9 @@ impl Parser {
     #[throws]
     pub fn variable(&mut self, var_type: Keyword) -> Node {
         let name = self.next_ident()?;
-        println!("var{name:?}");
         self.next_ensure(Token::Define)?;
         let value = Box::new(self.expr()?);
+        self.next_ensure(Token::Semicolon)?;
 
         Node::Definition { name, var_type, value }
     }
@@ -127,6 +128,7 @@ impl Parser {
     #[throws]
     pub fn simple(&mut self) -> Node {
         let token = self.next()?;
+        println!("{token:?}");
         match &token.token {
             Token::Str(_) | Token::Float(_, _) | Token::Int(_) => {
                 Node::Literal(token.token.clone())
@@ -155,11 +157,11 @@ impl Parser {
         exprs
     }
 
-    pub fn peek(&mut self) -> Result<&TokenWrapper, String> {
-        self.tokens.get(self.index + 1).ok_or(String::from("Token expected, EOF found"))
+    pub fn peek(&mut self) -> Result<&TokenWrapper, Error> {
+        self.tokens.get(self.index + 1).ok_or(Self::eof_error("Token expected, EOF found"))
     }
 
-    pub fn next_ensure(&mut self, token: Token) -> Result<&TokenWrapper, String> {
+    pub fn next_ensure(&mut self, token: Token) -> Result<&TokenWrapper, Error> {
         let next = self.next()?;
         if next.token != token {
             return Self::error(next, &format!("Expected {token:?} found {:?}", next.token));
@@ -167,7 +169,7 @@ impl Parser {
         Ok(next)
     }
 
-    pub fn next_ident(&mut self) -> Result<String, String> {
+    pub fn next_ident(&mut self) -> Result<String, Error> {
         let next = self.next()?;
         if let Token::Identifier(ident) = &next.token {
             Ok(ident.clone())
@@ -176,8 +178,8 @@ impl Parser {
         }
     }
 
-    pub fn next(&mut self) -> Result<&TokenWrapper, String> {
+    pub fn next(&mut self) -> Result<&TokenWrapper, Error> {
         self.index += 1;
-        self.tokens.get(self.index).ok_or(String::from("Token expected, EOF found"))
+        self.tokens.get(self.index - 1).ok_or(Self::eof_error("Token expected, EOF found"))
     }
 }
