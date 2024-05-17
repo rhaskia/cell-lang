@@ -6,25 +6,7 @@ mod parser;
 mod macros;
 
 fn main() {
-    let program = r#"
-        sys screen = 20;
-        sys type = 0;
-        sys jklsjfl dsfjkal;
-
-        fn update(x, neighbours) {
-            int count = 0;
-            for neighbour in neighbours {
-                if neightbour > 1 {
-                    count = count + 1;
-                }
-            }
-            return count;
-        }
-
-        fn out(buffer) {
-            print()
-        }
-        "#;
+    let program = &std::fs::read_to_string("main.cell").unwrap();
 
     println!("{program}");
     let mut lexer = lexer::Lexer::new(program.to_string());
@@ -49,7 +31,7 @@ pub fn build_error(program: &str, error: Error) -> String {
     let mut lines = program.lines();
     let Error { msg, start, end } = error;
     let error_point = format!("{}{}", " ".repeat(start.col - 2), "^".repeat(end.col - start.col + 1));
-    let line = lines.nth(start.line).unwrap();
+    let line = lines.nth(start.line - 1).unwrap();
     println!("{start:?}, {end:?}");
 
     format!("
@@ -57,5 +39,5 @@ pub fn build_error(program: &str, error: Error) -> String {
 -> main.cell:{}:{} 
 | {}
 | \x1b[92m\x1b[1m{}
-    ", msg, start.col, start.line, line, error_point)
+    ", msg, start.line, start.col, line, error_point)
 }

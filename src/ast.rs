@@ -10,6 +10,8 @@ pub enum Node {
     Function { name: String, params: Vec<String>, body: Vec<Node> },
     Return(Box<Node>),
     Definition { name: String, var_type: Keyword, value: Box<Node> },
+    ForLoop { item: String, iterator: Box<Node>, body: Vec<Node> },
+    If { expr: Box<Node>, body: Vec<Node> },
 }
 
 impl Node {

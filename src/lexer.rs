@@ -131,7 +131,7 @@ impl Lexer {
     }
 
     pub fn peek(&mut self) -> Result<char, Error> {
-        let peeked = self.program.get(self.index + 1);
+        let peeked = self.program.get(self.index);
         match peeked {
             Some(p) => Ok(*p),
             None => self.error("EOF found unexpectedly"),
@@ -148,7 +148,7 @@ impl Lexer {
     pub fn next(&mut self) -> Result<char, Error> {
         self.current.col += 1;
         self.index += 1;
-        let next_item_op = self.program.get(self.index).copied();
+        let next_item_op = self.program.get(self.index - 1).copied();
         let next_item = match next_item_op {
             Some(c) => c,
             None => self.error("EOF found unexpectedly")?,
@@ -253,6 +253,7 @@ pub enum Keyword {
     Return,
     For,
     In,
+    If,
 }
 
 #[derive(Debug)]

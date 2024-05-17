@@ -86,7 +86,9 @@ impl Parser {
         let mut body = Vec::new();
         while !self.peek()?.is_close_brace() {
             body.push(self.statement()?);
+            println!(" next is ::: {:?}", self.peek());
         }
+        self.next_ensure(Token::CloseBrace)?; 
 
         Node::Function { name, params, body }
     }
@@ -109,10 +111,48 @@ impl Parser {
         let next = self.next()?.token.clone();
         match &next {
             Token::Keyword(Keyword::Fn) => self.func_statement()?,
-            Token::Keyword(Keyword::Return) => Node::Return(Box::new(self.expr()?)),
-            Token::Keyword(var_type) => self.variable(var_type.clone())?,
+            Token::Keyword(Keyword::Return) => self.return_statement()?,
+            Token::Keyword(Keyword::For) => self.for_statement()?,
+            Token::Keyword(Keyword::If) => self.if_statement()?,
+            Token::Keyword(keyword) => self.variable(keyword.clone())?,
             _ => self.expr()?,
         }
+    }
+
+    #[throws]
+    pub fn return_statement(&mut self) -> Node {
+        let expr = self.expr()?;
+        self.next_ensure(Token::Semicolon)?;
+        Node::Return(Box::new(expr))
+    } 
+
+    #[throws]
+    pub fn if_statement(&mut self) -> Node {
+        let expr = Box::new(self.expr()?);
+        self.next_ensure(Token::OpenBrace)?;
+        let mut body = Vec::new();
+        while !self.peek()?.is_close_brace() {
+            body.push(self.statement()?);
+        }
+        self.next_ensure(Token::CloseBrace)?;
+
+        Node::If { expr, body }
+    }
+
+    #[throws]
+    pub fn for_statement(&mut self) -> Node {
+        let item = self.next_ident()?;
+        self.next_ensure(Token::Keyword(Keyword::In))?;
+        let iterator = Box::new(self.expr()?);
+
+        self.next_ensure(Token::OpenBrace)?; 
+        let mut body = Vec::new();
+        while !self.peek()?.is_close_brace() {
+            body.push(self.statement()?);
+        }
+        self.next_ensure(Token::CloseBrace)?; 
+
+        Node::ForLoop { item, iterator, body }
     }
 
     #[throws]
@@ -128,7 +168,6 @@ impl Parser {
     #[throws]
     pub fn simple(&mut self) -> Node {
         let token = self.next()?;
-        println!("{token:?}");
         match &token.token {
             Token::Str(_) | Token::Float(_, _) | Token::Int(_) => {
                 Node::Literal(token.token.clone())
@@ -158,7 +197,7 @@ impl Parser {
     }
 
     pub fn peek(&mut self) -> Result<&TokenWrapper, Error> {
-        self.tokens.get(self.index + 1).ok_or(Self::eof_error("Token expected, EOF found"))
+        self.tokens.get(self.index).ok_or(Self::eof_error("Token expected, EOF found"))
     }
 
     pub fn next_ensure(&mut self, token: Token) -> Result<&TokenWrapper, Error> {

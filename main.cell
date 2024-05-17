@@ -1,0 +1,16 @@
+sys screen = 20;
+sys type = 0;
+
+fn update(x, neighbours) {
+    int count = 0;
+    for neighbour in neighbours {
+        if neightbour > 1 {
+            int count = 1;
+        }
+    }
+    return count;
+}
+
+fn out(buffer) {
+    print();
+}
