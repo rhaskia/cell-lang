@@ -1,6 +1,9 @@
-use std::ops::{Deref, DerefMut};
 use crate::positioned::Positioned;
-use crate::{lexer::{Token, Keyword}, value::Value};
+use crate::{
+    lexer::{Keyword, Token},
+    value::Value,
+};
+use std::ops::{Deref, DerefMut};
 
 type PNode = Positioned<Node>;
 
@@ -9,7 +12,7 @@ pub enum Node {
     Literal(Value),
     Array(Vec<PNode>),
     Variable(String),
-    Binary { left: Box<PNode>, op: Token, right: Box<PNode>, },
+    Binary { left: Box<PNode>, op: Token, right: Box<PNode> },
     Function { name: String, params: Vec<String>, body: Vec<PNode> },
     Return(Box<PNode>),
     Definition { name: String, var_type: Keyword, value: Box<PNode> },
@@ -17,13 +20,17 @@ pub enum Node {
     If { expr: Box<PNode>, body: Vec<PNode> },
     Call { expr: Box<PNode>, args: Vec<PNode> },
     Get { expr: Box<PNode>, arg: Box<PNode> },
-    Tuple (Vec<PNode>),
+    Tuple(Vec<PNode>),
 }
 
 impl PNode {
     pub fn new_binary(left: PNode, op: Token, right: PNode) -> Self {
         let start = left.start.min(right.start);
         let end = left.start.max(right.end);
-        Positioned { inner: Node::Binary { left: Box::new(left), op, right: Box::new(right) }, start, end }
+        Positioned {
+            inner: Node::Binary { left: Box::new(left), op, right: Box::new(right) },
+            start,
+            end,
+        }
     }
 }

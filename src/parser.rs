@@ -1,6 +1,6 @@
 use crate::ast::Node;
-use crate::lexer::{Token, Keyword, Error};
-use crate::positioned::{Positioned, Position};
+use crate::lexer::{Error, Keyword, Token};
+use crate::positioned::{Position, Positioned};
 use fehler::throws;
 
 type PNode = Positioned<Node>;
@@ -29,7 +29,7 @@ impl Parser {
 
         while self.peek().is_ok() {
             ast.push(self.statement()?);
-        } 
+        }
 
         ast
     }
@@ -57,12 +57,12 @@ impl Parser {
             let right = self.expr()?;
 
             // ordering switching
-            if let Node::Binary { left: ref r_left, op: ref r_op, right: ref r_right } = right {
+            if let Node::Binary { left: ref r_left, op: ref r_op, right: ref r_right } = *right {
                 if Self::op_order(&op) > Self::op_order(r_op) {
-                    return PNode::new_binary( 
+                    return PNode::new_binary(
                         PNode::new_binary(left, op, *r_left.clone()),
                         r_op.clone(),
-                        *r_right.clone()
+                        *r_right.clone(),
                     );
                 }
             }
@@ -81,18 +81,27 @@ impl Parser {
             match self.peek()?.inner {
                 Token::OpenParen => {
                     self.next()?;
-                    let args = if self.peek()?.is_close_paren() { Vec::new() } else { self.expr_list()? };
+                    let args =
+                        if self.peek()?.is_close_paren() { Vec::new() } else { self.expr_list()? };
                     let end = self.next_ensure(Token::CloseParen)?.end;
-                    expr = Positioned { inner: Node::Call { expr: Box::new(expr.clone()), args }, start, end};
-                },
+                    expr = Positioned {
+                        inner: Node::Call { expr: Box::new(expr.clone()), args },
+                        start,
+                        end,
+                    };
+                }
                 Token::OpenBracket => {
                     self.next()?;
                     let arg = Box::new(self.expr()?);
                     let end = self.next_ensure(Token::CloseBracket)?.end;
-                    expr = Positioned {inner: Node::Get { expr: Box::new(expr.clone()), arg }, start, end };
-                },
-                Token::Period => {},
-                _ => break
+                    expr = Positioned {
+                        inner: Node::Get { expr: Box::new(expr.clone()), arg },
+                        start,
+                        end,
+                    };
+                }
+                Token::Period => {}
+                _ => break,
             };
         }
         expr
@@ -100,7 +109,7 @@ impl Parser {
 
     #[throws]
     fn func_statement(&mut self) -> PNode {
-        let start = self.last()?.start; 
+        let start = self.last()?.start;
         let name = self.next_ident()?;
 
         let mut params = Vec::new();
@@ -110,12 +119,12 @@ impl Parser {
             self.next_ensure(Token::CloseParen)?;
         }
 
-        self.next_ensure(Token::OpenBrace)?; 
+        self.next_ensure(Token::OpenBrace)?;
         let mut body = Vec::new();
         while !self.peek()?.is_close_brace() {
             body.push(self.statement()?);
         }
-        let end = self.next_ensure(Token::CloseBrace)?.end; 
+        let end = self.next_ensure(Token::CloseBrace)?.end;
 
         Positioned { inner: Node::Function { name, params, body }, start, end }
     }
@@ -157,45 +166,48 @@ impl Parser {
         let expr = self.expr()?;
         let end = self.next_ensure(Token::Semicolon)?.end;
         Positioned { inner: Node::Return(Box::new(expr)), start, end }
-    } 
+    }
 
     #[throws]
     pub fn if_statement(&mut self) -> PNode {
+        let start = self.last()?.start;
         let expr = Box::new(self.expr()?);
         self.next_ensure(Token::OpenBrace)?;
         let mut body = Vec::new();
         while !self.peek()?.is_close_brace() {
             body.push(self.statement()?);
         }
-        self.next_ensure(Token::CloseBrace)?;
+        let end = self.next_ensure(Token::CloseBrace)?.end;
 
-        Node::If { expr, body }
+        Positioned { inner: Node::If { expr, body }, start, end }
     }
 
     #[throws]
     pub fn for_statement(&mut self) -> PNode {
+        let start = self.last()?.start;
         let item = self.next_ident()?;
         self.next_ensure(Token::Keyword(Keyword::In))?;
         let iterator = Box::new(self.expr()?);
 
-        self.next_ensure(Token::OpenBrace)?; 
+        self.next_ensure(Token::OpenBrace)?;
         let mut body = Vec::new();
         while !self.peek()?.is_close_brace() {
             body.push(self.statement()?);
         }
-        self.next_ensure(Token::CloseBrace)?; 
+        let end = self.next_ensure(Token::CloseBrace)?.end;
 
-        Node::ForLoop { item, iterator, body }
+        Positioned { inner: Node::ForLoop { item, iterator, body }, start, end }
     }
 
     #[throws]
     pub fn variable(&mut self, var_type: Keyword) -> PNode {
+        let start = self.last()?.start;
         let name = self.next_ident()?;
         self.next_ensure(Token::Define)?;
         let value = Box::new(self.expr()?);
-        self.next_ensure(Token::Semicolon)?;
+        let end = self.next_ensure(Token::Semicolon)?.end;
 
-        Node::Definition { name, var_type, value }
+        Positioned { inner: Node::Definition { name, var_type, value }, start, end }
     }
 
     #[throws]
@@ -215,7 +227,9 @@ impl Parser {
                 let end = self.next_ensure(Token::CloseBracket)?.end;
                 Positioned { inner: Node::Array(items), start, end }
             }
-            Token::Identifier(ident) => Positioned { inner: Node::Variable(ident.clone()), start, end },
+            Token::Identifier(ident) => {
+                Positioned { inner: Node::Variable(ident.clone()), start, end }
+            }
             Token::OpenParen => {
                 let expr = self.expr()?;
                 match self.peek()?.inner {

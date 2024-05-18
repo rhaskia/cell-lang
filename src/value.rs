@@ -13,11 +13,11 @@ pub enum Value {
 type Error = String;
 
 impl Value {
-    pub fn and(&self, other: Value) -> Option<Value> {
+    pub fn and(&self, other: &Value) -> Option<Value> {
         Some(Value::Bool(self.as_bool() && other.as_bool()))
     }
 
-    pub fn or(&self, other: Value) -> Option<Value> {
+    pub fn or(&self, other: &Value) -> Option<Value> {
         Some(Value::Bool(self.as_bool() || other.as_bool()))
     }
 
@@ -32,43 +32,43 @@ impl Value {
         }
     }
 
-    pub fn mul(&self, other: Value) -> Option<Value> {
+    pub fn mul(&self, other: &Value) -> Option<Value> {
         match (self, other) {
             (Self::Int(i), Self::Int(j)) => Some(Value::Int(i * j)),
             (Self::Int(i), Self::Float(j)) => Some(Value::Float((*i as f32) * j)),
             (Self::Float(i), Self::Float(j)) => Some(Value::Float(*i * j)),
-            (Self::Float(i), Self::Int(j)) => Some(Value::Float(i * j as f32)),
+            (Self::Float(i), Self::Int(j)) => Some(Value::Float(i * *j as f32)),
             _ => None,
         }
     }
 
-    pub fn div(&self, other: Value) -> Option<Value> {
+    pub fn div(&self, other: &Value) -> Option<Value> {
         match (self, other) {
             (Self::Int(i), Self::Int(j)) => Some(Value::Int(i / j)),
             (Self::Int(i), Self::Float(j)) => Some(Value::Float((*i as f32) / j)),
             (Self::Float(i), Self::Float(j)) => Some(Value::Float(*i / j)),
-            (Self::Float(i), Self::Int(j)) => Some(Value::Float(i / j as f32)),
+            (Self::Float(i), Self::Int(j)) => Some(Value::Float(i / *j as f32)),
             _ => None,
         }
     }
 
-    pub fn add(&self, other: Value) -> Option<Value> {
+    pub fn add(&self, other: &Value) -> Option<Value> {
         match (self, other) {
             (Self::Int(i), Self::Int(j)) => Some(Value::Int(i + j)),
             (Self::Int(i), Self::Float(j)) => Some(Value::Float((*i as f32) + j)),
-            (Self::Float(i), Self::Int(j)) => Some(Value::Float(i + j as f32)),
+            (Self::Float(i), Self::Int(j)) => Some(Value::Float(i + *j as f32)),
             (Self::Float(i), Self::Float(j)) => Some(Value::Float(*i + j)),
             (Self::String(s), Self::String(t)) => Some(Value::String(format!("{}{}", s, t))),
             _ => None,
         }
     }
 
-    pub fn sub(&self, other: Value) -> Option<Value> {
+    pub fn sub(&self, other: &Value) -> Option<Value> {
         match (self, other) {
             (Self::Int(i), Self::Int(j)) => Some(Value::Int(i - j)),
             (Self::Int(i), Self::Float(j)) => Some(Value::Float((*i as f32) - j)),
             (Self::Float(i), Self::Float(j)) => Some(Value::Float(*i - j)),
-            (Self::Float(i), Self::Int(j)) => Some(Value::Float(i - j as f32)),
+            (Self::Float(i), Self::Int(j)) => Some(Value::Float(i - *j as f32)),
             _ => None,
         }
     }

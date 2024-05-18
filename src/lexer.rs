@@ -1,10 +1,11 @@
-use fehler::throws;
-use macros::{match_tokens, match_two};
-use std::{str::FromStr, f32};
-use strum_macros::{EnumIs, EnumString};
-use std::ops::{Deref, DerefMut};
+use crate::positioned::Position;
 use crate::positioned::Positioned;
 use crate::value::Value;
+use fehler::throws;
+use macros::{match_tokens, match_two};
+use std::ops::{Deref, DerefMut};
+use std::{f32, str::FromStr};
+use strum_macros::{EnumIs, EnumString};
 
 #[derive(Debug)]
 pub struct Error {
@@ -247,8 +248,6 @@ pub enum Keyword {
     If,
 }
 
-
-
 pub mod macros {
     macro_rules! match_tokens {
         ($s:ident, $tokens:expr, $base_token:ident, $($extra_char:literal => $extra_token:ident),*) => {
@@ -268,13 +267,11 @@ pub mod macros {
     }
 
     macro_rules! match_two {
-        ($s:ident, $tokens:expr, $add_char:expr, $token:ident) => {
-            {
-                if $s.matches($add_char) {
-                    $tokens.push($s.wrap(Token::$token))
-                }
+        ($s:ident, $tokens:expr, $add_char:expr, $token:ident) => {{
+            if $s.matches($add_char) {
+                $tokens.push($s.wrap(Token::$token))
             }
-        }
+        }};
     }
 
     pub(crate) use match_tokens;

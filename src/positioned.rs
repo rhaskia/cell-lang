@@ -1,4 +1,7 @@
-use std::{ops::{DerefMut, Deref}, cmp::Ordering};
+use std::{
+    cmp::Ordering,
+    ops::{Deref, DerefMut},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Position {
@@ -34,13 +37,13 @@ impl<T> DerefMut for Positioned<T> {
 
 impl Ord for Position {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-       if self.line != other.line {
-           return if self.line > other.line { Ordering::Greater } else { Ordering::Less }
-       }
-       if self.col != other.col { 
-           return if self.col > other.col { Ordering::Greater } else { Ordering::Less }
-       }
-       Ordering::Equal
+        if self.line != other.line {
+            return if self.line > other.line { Ordering::Greater } else { Ordering::Less };
+        }
+        if self.col != other.col {
+            return if self.col > other.col { Ordering::Greater } else { Ordering::Less };
+        }
+        Ordering::Equal
     }
 }
 

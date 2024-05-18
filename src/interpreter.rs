@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
-use crate::lexer::{Error};
+use crate::lexer::Error;
+use crate::positioned::Position;
+use crate::positioned::Positioned;
+use crate::value::Value;
 use crate::{
     ast::Node,
-    lexer::{Keyword, Position, Token},
+    lexer::{Keyword, Token},
 };
-use crate::value::Value;
-use crate::positioned::Positioned;
 use fehler::throws;
 
 type Scope = HashMap<String, Value>;
@@ -30,7 +31,7 @@ impl Interpreter {
     #[throws]
     pub fn execute(&mut self, mut scope: Scope) -> Scope {
         let node = self.next();
-        match *node {
+        match node.inner {
             Node::Definition { name, var_type, value } => {
                 let evaled = self.evaluate(&value, &mut scope)?;
                 scope.insert(name.to_string(), evaled);
@@ -58,7 +59,7 @@ impl Interpreter {
 
     #[throws]
     pub fn evaluate(&mut self, value: &Positioned<Node>, scope: &mut Scope) -> Value {
-        match value {
+        match &value.inner {
             Node::Variable(name) => {
                 if !Self::in_scope(scope, &name) {
                     self.error(&format!("{name} not found in scope"))?;
@@ -66,28 +67,35 @@ impl Interpreter {
                 scope[name].clone()
             }
             Node::Array(a) => {
-                let evaled: Result<Vec<Value>, Error> = a.iter().map(|item| self.evaluate(item, scope)).collect();
+                let evaled: Result<Vec<Value>, Error> =
+                    a.iter().map(|item| self.evaluate(item, scope)).collect();
                 Value::Array(evaled?)
             }
-            Node::Binary { left, op, right } => self.evaluate_binary(left, op, right, scope)?,
+            Node::Binary { left, op, right } => self.evaluate_binary(&left, &op, &right, scope)?,
             _ => self.error("Expected expression found statement")?,
         }
     }
 
     #[throws]
-    pub fn evaluate_binary(&mut self, left: &Box<Positioned<Node>>, op: &Token, right: &Box<Positioned<Node>>, scope: &mut Scope) -> Value {
-        let start = left.start.min(right.start); 
+    pub fn evaluate_binary(
+        &mut self,
+        left: &Box<Positioned<Node>>,
+        op: &Token,
+        right: &Box<Positioned<Node>>,
+        scope: &mut Scope,
+    ) -> Value {
+        let start = left.start.min(right.start);
         let end = left.end.max(right.end);
 
         let left = self.evaluate(left, scope)?;
         let right = self.evaluate(right, scope)?;
         let result = match op {
-            Token::Minus => left.sub(right),
-            Token::Plus => left.add(right),
-            Token::Asterisk => left.mul(right),
-            Token::Slash => left.div(right),
-            Token::Or => left.or(right),
-            Token::And => left.and(right),
+            Token::Minus => left.sub(&right),
+            Token::Plus => left.add(&right),
+            Token::Asterisk => left.mul(&right),
+            Token::Slash => left.div(&right),
+            Token::Or => left.or(&right),
+            Token::And => left.and(&right),
             _ => Some(Value::Bool(match op {
                 Token::Equals => left == right,
                 Token::NotEquals => left != right,
@@ -96,12 +104,15 @@ impl Interpreter {
                 Token::GreaterThan => left <= right,
                 Token::LesserThan => left >= right,
                 _ => unreachable!(),
-            }))
+            })),
         };
 
         match result {
             Some(s) => s,
-            None => self.error(&format!("Operand {} cannot be used between types {} and {}", op, left, right))?
+            None => self.error(&format!(
+                "Operand {} cannot be used between types {} and {}",
+                op, left, right
+            ))?,
         }
     }
 
