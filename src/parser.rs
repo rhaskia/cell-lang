@@ -1,18 +1,21 @@
 use crate::ast::Node;
-use crate::lexer::{Token, TokenWrapper, Keyword, Error, Position};
+use crate::lexer::{Token, Keyword, Error};
+use crate::positioned::{Positioned, Position};
 use fehler::throws;
 
+type PNode = Positioned<Node>;
+
 pub struct Parser {
-    tokens: Vec<TokenWrapper>,
+    tokens: Vec<Positioned<Token>>,
     index: usize,
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<TokenWrapper>) -> Self {
+    pub fn new(tokens: Vec<Positioned<Token>>) -> Self {
         Self { tokens, index: 0 }
     }
 
-    pub fn error<T>(token: &TokenWrapper, msg: &str) -> Result<T, Error> {
+    pub fn error<T>(token: &Positioned<Token>, msg: &str) -> Result<T, Error> {
         Err(Error { msg: msg.to_string(), start: token.start, end: token.end })
     }
 
@@ -21,12 +24,11 @@ impl Parser {
     }
 
     #[throws]
-    pub fn parse(&mut self) -> Vec<Node> {
+    pub fn parse(&mut self) -> Vec<PNode> {
         let mut ast = Vec::new();
 
         while self.peek().is_ok() {
             ast.push(self.statement()?);
-            println!("{ast:?}");
         } 
 
         ast
@@ -47,32 +49,58 @@ impl Parser {
     }
 
     #[throws]
-    pub fn expr(&mut self) -> Node {
-        let left = self.simple()?;
+    pub fn expr(&mut self) -> PNode {
+        let left = self.call()?;
 
-        if Self::is_op(&self.peek()?.token) {
-            let op = self.next()?.token.clone();
+        if Self::is_op(&self.peek()?.inner) {
+            let op = self.next()?.inner.clone();
             let right = self.expr()?;
 
             // ordering switching
             if let Node::Binary { left: ref r_left, op: ref r_op, right: ref r_right } = right {
                 if Self::op_order(&op) > Self::op_order(r_op) {
-                    return Node::new_binary( 
-                        Node::new_binary(left, op, *r_left.clone()),
+                    return PNode::new_binary( 
+                        PNode::new_binary(left, op, *r_left.clone()),
                         r_op.clone(),
                         *r_right.clone()
                     );
                 }
             }
 
-            return Node::new_binary(left, op, right);
+            return PNode::new_binary(left, op, right);
         }
 
         left
     }
 
     #[throws]
-    fn func_statement(&mut self) -> Node {
+    pub fn call(&mut self) -> PNode {
+        let mut expr = self.simple()?;
+        let start = expr.start;
+        loop {
+            match self.peek()?.inner {
+                Token::OpenParen => {
+                    self.next()?;
+                    let args = if self.peek()?.is_close_paren() { Vec::new() } else { self.expr_list()? };
+                    let end = self.next_ensure(Token::CloseParen)?.end;
+                    expr = Positioned { inner: Node::Call { expr: Box::new(expr.clone()), args }, start, end};
+                },
+                Token::OpenBracket => {
+                    self.next()?;
+                    let arg = Box::new(self.expr()?);
+                    let end = self.next_ensure(Token::CloseBracket)?.end;
+                    expr = Positioned {inner: Node::Get { expr: Box::new(expr.clone()), arg }, start, end };
+                },
+                Token::Period => {},
+                _ => break
+            };
+        }
+        expr
+    }
+
+    #[throws]
+    fn func_statement(&mut self) -> PNode {
+        let start = self.last()?.start; 
         let name = self.next_ident()?;
 
         let mut params = Vec::new();
@@ -86,11 +114,10 @@ impl Parser {
         let mut body = Vec::new();
         while !self.peek()?.is_close_brace() {
             body.push(self.statement()?);
-            println!(" next is ::: {:?}", self.peek());
         }
-        self.next_ensure(Token::CloseBrace)?; 
+        let end = self.next_ensure(Token::CloseBrace)?.end; 
 
-        Node::Function { name, params, body }
+        Positioned { inner: Node::Function { name, params, body }, start, end }
     }
 
     #[throws]
@@ -107,27 +134,33 @@ impl Parser {
     }
 
     #[throws]
-    pub fn statement(&mut self) -> Node {
-        let next = self.next()?.token.clone();
+    pub fn statement(&mut self) -> PNode {
+        let next = self.next()?.inner.clone();
         match &next {
             Token::Keyword(Keyword::Fn) => self.func_statement()?,
             Token::Keyword(Keyword::Return) => self.return_statement()?,
             Token::Keyword(Keyword::For) => self.for_statement()?,
             Token::Keyword(Keyword::If) => self.if_statement()?,
             Token::Keyword(keyword) => self.variable(keyword.clone())?,
-            _ => self.expr()?,
+            _ => {
+                self.backtrack();
+                let expr = self.expr()?;
+                self.next_ensure(Token::Semicolon)?;
+                expr
+            }
         }
     }
 
     #[throws]
-    pub fn return_statement(&mut self) -> Node {
+    pub fn return_statement(&mut self) -> PNode {
+        let start = self.last()?.start;
         let expr = self.expr()?;
-        self.next_ensure(Token::Semicolon)?;
-        Node::Return(Box::new(expr))
+        let end = self.next_ensure(Token::Semicolon)?.end;
+        Positioned { inner: Node::Return(Box::new(expr)), start, end }
     } 
 
     #[throws]
-    pub fn if_statement(&mut self) -> Node {
+    pub fn if_statement(&mut self) -> PNode {
         let expr = Box::new(self.expr()?);
         self.next_ensure(Token::OpenBrace)?;
         let mut body = Vec::new();
@@ -140,7 +173,7 @@ impl Parser {
     }
 
     #[throws]
-    pub fn for_statement(&mut self) -> Node {
+    pub fn for_statement(&mut self) -> PNode {
         let item = self.next_ident()?;
         self.next_ensure(Token::Keyword(Keyword::In))?;
         let iterator = Box::new(self.expr()?);
@@ -156,7 +189,7 @@ impl Parser {
     }
 
     #[throws]
-    pub fn variable(&mut self, var_type: Keyword) -> Node {
+    pub fn variable(&mut self, var_type: Keyword) -> PNode {
         let name = self.next_ident()?;
         self.next_ensure(Token::Define)?;
         let value = Box::new(self.expr()?);
@@ -166,59 +199,85 @@ impl Parser {
     }
 
     #[throws]
-    pub fn simple(&mut self) -> Node {
+    pub fn simple(&mut self) -> PNode {
         let token = self.next()?;
-        match &token.token {
-            Token::Str(_) | Token::Float(_, _) | Token::Int(_) => {
-                Node::Literal(token.token.clone())
+        let start = token.start;
+        let end = token.end;
+        match &token.inner {
+            Token::Literal(literal) => {
+                Positioned { inner: Node::Literal(literal.clone()), start, end }
             }
             Token::OpenBracket => {
                 let mut items = Vec::new();
-                if !self.peek()?.token.is_close_bracket() {
+                if !self.peek()?.inner.is_close_bracket() {
                     items = self.expr_list()?;
                 }
-                Node::Array(items)
+                let end = self.next_ensure(Token::CloseBracket)?.end;
+                Positioned { inner: Node::Array(items), start, end }
             }
-            Token::Identifier(ident) => Node::Variable(ident.clone()),
-            Token::OpenParen => self.expr()?,
-            _ => Self::error(token, &format!("Expected expression but got {}", token.token))?,
+            Token::Identifier(ident) => Positioned { inner: Node::Variable(ident.clone()), start, end },
+            Token::OpenParen => {
+                let expr = self.expr()?;
+                match self.peek()?.inner {
+                    Token::CloseParen => {
+                        self.next()?;
+                        expr
+                    }
+                    Token::Comma => {
+                        self.backtrack();
+                        let list = self.expr_list()?;
+                        let end = self.next_ensure(Token::CloseParen)?.end;
+                        Positioned { inner: Node::Tuple(list), start, end }
+                    }
+                    _ => Self::error(&token, &format!("Expected , or ), found {}", token.inner))?,
+                }
+            }
+            _ => Self::error(&token, &format!("Expected expression but got {}", token.inner))?,
         }
     }
 
     #[throws]
-    pub fn expr_list(&mut self) -> Vec<Node> {
+    pub fn expr_list(&mut self) -> Vec<PNode> {
         let mut exprs = Vec::new();
         exprs.push(self.expr()?);
-        while self.peek()?.token == Token::Comma {
+        while self.peek()?.inner == Token::Comma {
             self.next()?;
             exprs.push(self.expr()?);
         }
         exprs
     }
 
-    pub fn peek(&mut self) -> Result<&TokenWrapper, Error> {
+    pub fn peek(&mut self) -> Result<&Positioned<Token>, Error> {
         self.tokens.get(self.index).ok_or(Self::eof_error("Token expected, EOF found"))
     }
 
-    pub fn next_ensure(&mut self, token: Token) -> Result<&TokenWrapper, Error> {
+    pub fn next_ensure(&mut self, token: Token) -> Result<Positioned<Token>, Error> {
         let next = self.next()?;
-        if next.token != token {
-            return Self::error(next, &format!("Expected {token:?} found {:?}", next.token));
+        if next.inner != token {
+            return Self::error(&next, &format!("Expected {token:?} found {:?}", next.inner));
         }
         Ok(next)
     }
 
     pub fn next_ident(&mut self) -> Result<String, Error> {
         let next = self.next()?;
-        if let Token::Identifier(ident) = &next.token {
+        if let Token::Identifier(ident) = &next.inner {
             Ok(ident.clone())
         } else {
-            Self::error(next, &format!("Exptected identifier found {:?}", next.token))
+            Self::error(&next, &format!("Exptected identifier found {:?}", next.inner))
         }
     }
 
-    pub fn next(&mut self) -> Result<&TokenWrapper, Error> {
+    pub fn next(&mut self) -> Result<Positioned<Token>, Error> {
         self.index += 1;
-        self.tokens.get(self.index - 1).ok_or(Self::eof_error("Token expected, EOF found"))
+        self.tokens.get(self.index - 1).cloned().ok_or(Self::eof_error("Token expected, EOF found"))
+    }
+
+    pub fn last(&mut self) -> Result<Positioned<Token>, Error> {
+        self.tokens.get(self.index - 1).cloned().ok_or(Self::eof_error("Token expected, EOF found"))
+    }
+
+    pub fn backtrack(&mut self) {
+        self.index -= 1;
     }
 }

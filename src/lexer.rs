@@ -1,8 +1,10 @@
 use fehler::throws;
 use macros::{match_tokens, match_two};
-use std::str::FromStr;
+use std::{str::FromStr, f32};
 use strum_macros::{EnumIs, EnumString};
 use std::ops::{Deref, DerefMut};
+use crate::positioned::Positioned;
+use crate::value::Value;
 
 #[derive(Debug)]
 pub struct Error {
@@ -18,18 +20,6 @@ pub struct Lexer {
     index: usize,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct Position {
-    pub line: usize,
-    pub col: usize,
-}
-
-impl Position {
-    pub fn new() -> Self {
-        Self { line: 1, col: 1 }
-    }
-}
-
 impl Lexer {
     pub fn new(program: String) -> Self {
         let program: Vec<char> = program.chars().collect();
@@ -37,7 +27,7 @@ impl Lexer {
     }
 
     #[throws]
-    pub fn scan_tokens(&mut self) -> Vec<TokenWrapper> {
+    pub fn scan_tokens(&mut self) -> Vec<Positioned<Token>> {
         let mut tokens = Vec::new();
 
         while let Ok(token) = self.next() {
@@ -46,6 +36,7 @@ impl Lexer {
                 ',' => tokens.push(self.wrap(Token::Comma)),
                 ':' => tokens.push(self.wrap(Token::Colon)),
                 ';' => tokens.push(self.wrap(Token::Semicolon)),
+                '.' => tokens.push(self.wrap(Token::Period)),
 
                 '-' => tokens.push(self.wrap(Token::Minus)),
                 '+' => tokens.push(self.wrap(Token::Plus)),
@@ -71,13 +62,13 @@ impl Lexer {
                         string.push(self.next().unwrap());
                     }
                     let _ = self.next();
-                    tokens.push(self.wrap(Token::Str(string)));
+                    tokens.push(self.wrap(Token::Literal(Value::String(string))));
                 }
 
                 '\'' => {
                     let char = self.next().unwrap();
                     if let '\'' = self.next()? {
-                        tokens.push(self.wrap(Token::Char(char)));
+                        tokens.push(self.wrap(Token::Literal(Value::Char(char))));
                     } else {
                         self.error("Char closing tag not found.")?;
                     }
@@ -126,8 +117,8 @@ impl Lexer {
         tokens
     }
 
-    pub fn wrap(&self, token: Token) -> TokenWrapper {
-        TokenWrapper { token, start: self.token_start, end: self.current }
+    pub fn wrap(&self, inner: Token) -> Positioned<Token> {
+        Positioned { inner, start: self.token_start, end: self.current }
     }
 
     pub fn peek(&mut self) -> Result<char, Error> {
@@ -181,9 +172,11 @@ impl Lexer {
             if parts.len() > 2 {
                 self.error("More than one decimal point found in number")?;
             }
-            Token::Float(parts[0].to_string(), parts[1].to_string())
+            let value = str::parse::<f32>(&cleaned).unwrap();
+            Token::Literal(Value::Float(value))
         } else {
-            Token::Int(cleaned)
+            let value = str::parse::<i32>(&cleaned).unwrap();
+            Token::Literal(Value::Int(value))
         }
     }
 
@@ -204,6 +197,7 @@ pub enum Token {
     Comma,
     Colon,
     Semicolon,
+    Period,
 
     Minus,
     Plus,
@@ -231,10 +225,7 @@ pub enum Token {
     GreaterThan,
     LesserThan,
 
-    Str(String),
-    Char(char),
-    Float(String, String),
-    Int(String),
+    Literal(Value),
 
     Keyword(Keyword),
     Identifier(String),
@@ -256,25 +247,7 @@ pub enum Keyword {
     If,
 }
 
-#[derive(Debug)]
-pub struct TokenWrapper {
-    pub token: Token,
-    pub start: Position,
-    pub end: Position,
-}
 
-impl Deref for TokenWrapper {
-    type Target = Token;
-    fn deref(&self) -> &Token {
-        &self.token
-    }
-}
-
-impl DerefMut for TokenWrapper {
-    fn deref_mut(&mut self) -> &mut Token {
-        &mut self.token
-    }
-}
 
 pub mod macros {
     macro_rules! match_tokens {
