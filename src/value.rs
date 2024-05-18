@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use strum_macros::Display;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Display)]
@@ -8,6 +10,8 @@ pub enum Value {
     Char(char),
     Array(Vec<Value>),
     Bool(bool),
+    Function(fn(HashMap<String, Value>) -> Value),
+    Unit,
 }
 
 type Error = String;
@@ -29,6 +33,8 @@ impl Value {
             Value::Char(c) => *c != '\0',
             Value::Array(a) => a.len() != 0,
             Value::Bool(b) => *b,
+            Value::Function(_) => true,
+            Value::Unit => false,
         }
     }
 
@@ -38,8 +44,13 @@ impl Value {
             (Self::Int(i), Self::Float(j)) => Some(Value::Float((*i as f32) * j)),
             (Self::Float(i), Self::Float(j)) => Some(Value::Float(*i * j)),
             (Self::Float(i), Self::Int(j)) => Some(Value::Float(i * *j as f32)),
+            (Self::Array(a), Self::Int(i)) => Some(Self::repeat_array(a.clone(), *i)),
             _ => None,
         }
+    }
+
+    pub fn repeat_array(array: Vec<Value>, repeat: i32) -> Value {
+        Value::Array(vec![array; repeat as usize].iter().flat_map(|i| i.clone()).collect())
     }
 
     pub fn div(&self, other: &Value) -> Option<Value> {

@@ -157,7 +157,7 @@ impl Lexer {
     }
 
     pub fn matches(&mut self, item: char) -> bool {
-        if self.program.get(self.index + 1) == Some(&&item) {
+        if self.program.get(self.index) == Some(&&item) {
             self.next();
             return true;
         }
@@ -246,6 +246,7 @@ pub enum Keyword {
     For,
     In,
     If,
+    Array,
 }
 
 pub mod macros {

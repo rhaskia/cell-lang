@@ -25,7 +25,7 @@ impl Interpreter {
     #[throws]
     pub fn interpret(&mut self) {
         let mut scope = Scope::new();
-        self.execute(scope.clone());
+        self.execute(scope.clone())?;
     }
 
     #[throws]
@@ -33,16 +33,19 @@ impl Interpreter {
         let node = self.next();
         match node.inner {
             Node::Definition { name, var_type, value } => {
-                let evaled = self.evaluate(&value, &mut scope)?;
+                let evaled = Self::evaluate(&value, &mut scope)?;
                 scope.insert(name.to_string(), evaled);
                 return scope;
             }
-            Node::Function { name, params, body } => {}
+            Node::Function { name, params, body } => {
+                scope.insert(name, Value::Function(|scope: Scope| Value::Unit));
+                return scope;
+            }
             Node::Return(value) => {}
             Node::ForLoop { item, iterator, body } => {}
             Node::If { expr, body } => {}
             _ => {
-                self.evaluate(&node, &mut scope)?;
+                Self::evaluate(&node, &mut scope)?;
             }
         };
         scope.clone()
@@ -58,27 +61,27 @@ impl Interpreter {
     }
 
     #[throws]
-    pub fn evaluate(&mut self, value: &Positioned<Node>, scope: &mut Scope) -> Value {
+    pub fn evaluate(value: &Positioned<Node>, scope: &mut Scope) -> Value {
         match &value.inner {
             Node::Variable(name) => {
                 if !Self::in_scope(scope, &name) {
-                    self.error(&format!("{name} not found in scope"))?;
+                    Self::error(&format!("{name} not found in scope"))?;
                 }
                 scope[name].clone()
             }
             Node::Array(a) => {
                 let evaled: Result<Vec<Value>, Error> =
-                    a.iter().map(|item| self.evaluate(item, scope)).collect();
+                    a.iter().map(|item| Self::evaluate(item, scope)).collect();
                 Value::Array(evaled?)
             }
-            Node::Binary { left, op, right } => self.evaluate_binary(&left, &op, &right, scope)?,
-            _ => self.error("Expected expression found statement")?,
+            Node::Binary { left, op, right } => Self::evaluate_binary(&left, &op, &right, scope)?,
+            Node::Literal(v) => v.clone(),
+            _ => Self::error("Expected expression found statement")?,
         }
     }
 
     #[throws]
     pub fn evaluate_binary(
-        &mut self,
         left: &Box<Positioned<Node>>,
         op: &Token,
         right: &Box<Positioned<Node>>,
@@ -87,8 +90,8 @@ impl Interpreter {
         let start = left.start.min(right.start);
         let end = left.end.max(right.end);
 
-        let left = self.evaluate(left, scope)?;
-        let right = self.evaluate(right, scope)?;
+        let left = Self::evaluate(left, scope)?;
+        let right = Self::evaluate(right, scope)?;
         let result = match op {
             Token::Minus => left.sub(&right),
             Token::Plus => left.add(&right),
@@ -109,14 +112,14 @@ impl Interpreter {
 
         match result {
             Some(s) => s,
-            None => self.error(&format!(
+            None => Self::error(&format!(
                 "Operand {} cannot be used between types {} and {}",
                 op, left, right
             ))?,
         }
     }
 
-    pub fn error<T>(&self, msg: &str) -> Result<T, Error> {
+    pub fn error<T>(msg: &str) -> Result<T, Error> {
         let msg = msg.to_string();
         Err(Error { msg, start: Position::new(), end: Position::new() })
     }

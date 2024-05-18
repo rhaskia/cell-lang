@@ -268,7 +268,7 @@ impl Parser {
     pub fn next_ensure(&mut self, token: Token) -> Result<Positioned<Token>, Error> {
         let next = self.next()?;
         if next.inner != token {
-            return Self::error(&next, &format!("Expected {token:?} found {:?}", next.inner));
+            return Self::error(&next, &format!("Expected {token} found {}", next.inner));
         }
         Ok(next)
     }

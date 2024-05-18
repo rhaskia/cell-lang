@@ -3,9 +3,9 @@ use crate::{
     lexer::{Keyword, Token},
     value::Value,
 };
-use std::ops::{Deref, DerefMut};
 
 type PNode = Positioned<Node>;
+type PToken = Positioned<Token>;
 
 #[derive(Debug, Clone)]
 pub enum Node {
