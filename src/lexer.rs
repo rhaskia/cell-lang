@@ -43,6 +43,8 @@ impl Lexer {
                 '+' => tokens.push(self.wrap(Token::Plus)),
                 '*' => tokens.push(self.wrap(Token::Asterisk)),
                 '^' => tokens.push(self.wrap(Token::Carat)),
+                '~' => tokens.push(self.wrap(Token::Tilde)),
+                '!' => tokens.push(self.wrap(Token::Tilde)),
 
                 '{' => tokens.push(self.wrap(Token::OpenBrace)),
                 '}' => tokens.push(self.wrap(Token::CloseBrace)),
@@ -52,7 +54,7 @@ impl Lexer {
                 ')' => tokens.push(self.wrap(Token::CloseParen)),
 
                 '&' => match_two!(self, tokens, '&', And),
-                '|' => match_two!(self, tokens, '|', Or),
+                '|' => match_tokens!(self, tokens, Pipe, '>' => Pipeline, '|' => Or),
                 '>' => match_tokens!(self, tokens, Greater, '=' => GreaterThan),
                 '<' => match_tokens!(self, tokens, Lesser, '=' => LesserThan),
                 '=' => match_tokens!(self, tokens, Define, '=' => Equals, '>' => Arrow),
@@ -199,6 +201,7 @@ pub enum Token {
     Colon,
     Semicolon,
     Period,
+    Tilde,
 
     Minus,
     Plus,
@@ -225,6 +228,9 @@ pub enum Token {
     Lesser,
     GreaterThan,
     LesserThan,
+
+    Pipe, 
+    Pipeline,
 
     Literal(Value),
 

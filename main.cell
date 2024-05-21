@@ -1,11 +1,13 @@
-!
-.4#
-4#
-4#
-!
+~a b;4|b;4|b;4~
+!b 30
+!a 10
 
-f(#) = >=3# || f(#)
+f(a) = #a>=3 || r(a)
+r(a) = a>=3a
 
-# => ne# || sn# => .
-. => >1# => #
-. => n. => $n
+main a = @north > 4 || south(b) => b;
+main b = #a == 1 => b;
+main centre = | @north > 4  => 
+              | 
+              | 
+

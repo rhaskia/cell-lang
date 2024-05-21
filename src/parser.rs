@@ -1,4 +1,5 @@
 use crate::ast::Node;
+use crate::value::Value;
 use crate::lexer::{Error, Keyword, Token};
 use crate::positioned::{Position, Positioned};
 use fehler::throws;
@@ -150,7 +151,8 @@ impl Parser {
             Token::Keyword(Keyword::Return) => self.return_statement()?,
             Token::Keyword(Keyword::For) => self.for_statement()?,
             Token::Keyword(Keyword::If) => self.if_statement()?,
-            Token::Keyword(keyword) => self.variable(keyword.clone())?,
+            Token::Tilde => self.memory_statement()?,
+            Token::Not => self.variable()?,
             _ => {
                 self.backtrack();
                 let expr = self.expr()?;
@@ -158,6 +160,32 @@ impl Parser {
                 expr
             }
         }
+    }
+
+
+    #[throws]
+    pub fn memory_statement(&mut self) -> PNode {
+        let start = self.last()?.start;
+        let mut data = vec![vec![]];
+        let mut row = 0;
+        while !self.peek()?.is_tilde() {
+            let next = self.next()?;
+            match next.inner {
+                Token::Identifier(ident) => {
+                    if self.peek()?.is_semicolon() {
+                        self.next()?;
+                        let count = self.next_number()?;
+                        for _ in 0..count {
+                            data[row].push(ident.clone());
+                        }
+                    }
+                },
+                Token::Pipe => { row += 1; }
+                _ => {}
+            }
+        }
+        let end = self.next_ensure(Token::Tilde)?.end;
+        Positioned { inner: Node::Memory(data), start, end }
     }
 
     #[throws]
@@ -200,14 +228,13 @@ impl Parser {
     }
 
     #[throws]
-    pub fn variable(&mut self, var_type: Keyword) -> PNode {
+    pub fn variable(&mut self) -> PNode {
         let start = self.last()?.start;
         let name = self.next_ident()?;
-        self.next_ensure(Token::Define)?;
         let value = Box::new(self.expr()?);
-        let end = self.next_ensure(Token::Semicolon)?.end;
+        let end = value.end;
 
-        Positioned { inner: Node::Definition { name, var_type, value }, start, end }
+        Positioned { inner: Node::Definition { name, value }, start, end }
     }
 
     #[throws]
@@ -276,6 +303,15 @@ impl Parser {
     pub fn next_ident(&mut self) -> Result<String, Error> {
         let next = self.next()?;
         if let Token::Identifier(ident) = &next.inner {
+            Ok(ident.clone())
+        } else {
+            Self::error(&next, &format!("Exptected identifier found {:?}", next.inner))
+        }
+    }
+
+    pub fn next_number(&mut self) -> Result<i32, Error> {
+        let next = self.next()?;
+        if let Token::Literal(Value::Int(ident)) = &next.inner {
             Ok(ident.clone())
         } else {
             Self::error(&next, &format!("Exptected identifier found {:?}", next.inner))

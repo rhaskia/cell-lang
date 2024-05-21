@@ -15,12 +15,14 @@ pub enum Node {
     Binary { left: Box<PNode>, op: Token, right: Box<PNode> },
     Function { name: String, params: Vec<String>, body: Vec<PNode> },
     Return(Box<PNode>),
-    Definition { name: String, var_type: Keyword, value: Box<PNode> },
     ForLoop { item: String, iterator: Box<PNode>, body: Vec<PNode> },
     If { expr: Box<PNode>, body: Vec<PNode> },
     Call { expr: Box<PNode>, args: Vec<PNode> },
     Get { expr: Box<PNode>, arg: Box<PNode> },
     Tuple(Vec<PNode>),
+
+    Memory(Vec<Vec<String>>),
+    Definition { name: String, value: Box<PNode> },
 }
 
 impl PNode {

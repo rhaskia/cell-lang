@@ -32,11 +32,6 @@ impl Interpreter {
     pub fn execute(&mut self, mut scope: Scope) -> Scope {
         let node = self.next();
         match node.inner {
-            Node::Definition { name, var_type, value } => {
-                let evaled = Self::evaluate(&value, &mut scope)?;
-                scope.insert(name.to_string(), evaled);
-                return scope;
-            }
             Node::Return(value) => {}
             Node::ForLoop { item, iterator, body } => {}
             Node::If { expr, body } => {}
