@@ -37,10 +37,6 @@ impl Interpreter {
                 scope.insert(name.to_string(), evaled);
                 return scope;
             }
-            Node::Function { name, params, body } => {
-                scope.insert(name, Value::Function(|scope: Scope| Value::Unit));
-                return scope;
-            }
             Node::Return(value) => {}
             Node::ForLoop { item, iterator, body } => {}
             Node::If { expr, body } => {}

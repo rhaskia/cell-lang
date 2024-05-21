@@ -1,16 +1,11 @@
-array screen = [[0, 1, 1, 0]] * 4;
+!
+.4#
+4#
+4#
+!
 
-fn update(x, neighbours) {
-    int count = 0;
-    for neighbour in neighbours {
-        if neightbour == 1 {
-            int count = 1;
-        }
-    }
-    return count;
-}
+f(#) = >=3# || f(#)
 
-fn out(x) {
-    int t = 1;
-    print(0.0);
-}
+# => ne# || sn# => .
+. => >1# => #
+. => n. => $n
