@@ -10,10 +10,9 @@ use crate::{
 };
 use fehler::throws;
 
-type Scope = HashMap<String, Value>;
-
 pub struct Interpreter {
     instructions: Vec<Positioned<Node>>,
+    constants: HashMap<String, Value>,
     index: usize,
 }
 
@@ -25,7 +24,18 @@ impl Interpreter {
     #[throws]
     pub fn interpret(&mut self) {
         let mut scope = Scope::new();
+        self.load_constants()?;
         self.execute(scope.clone())?;
+    }
+
+    #[throws]
+    pub fn load_constants(&mut self) {
+        for instruction in &self.instructions {
+            if let Node::Definition{name, value} = &instruction.inner {
+                let value = self.evaluate(&value)?;
+                self.constants.insert(name.to_string(), value);
+            }
+        }
     }
 
     #[throws]
@@ -33,7 +43,7 @@ impl Interpreter {
         let node = self.next();
         match node.inner {
             _ => {
-                Self::evaluate(&node, &mut scope)?;
+                self.evaluate(&node)?;
             }
         };
         scope.clone()
@@ -44,19 +54,10 @@ impl Interpreter {
         self.instructions[self.index - 1].clone()
     }
 
-    pub fn in_scope(scope: &Scope, name: &str) -> bool {
-        scope.contains_key(name)
-    }
-
     #[throws]
-    pub fn evaluate(value: &Positioned<Node>, scope: &mut Scope) -> Value {
+    pub fn evaluate(&self, value: &Positioned<Node>) -> Value {
         match &value.inner {
-            Node::Variable(name) => {
-                if !Self::in_scope(scope, &name) {
-                    Self::error(&format!("{name} not found in scope"))?;
-                }
-                scope[name].clone()
-            }
+            Node::Variable(v) => self.constants[v],
             Node::Array(a) => {
                 let evaled: Result<Vec<Value>, Error> =
                     a.iter().map(|item| Self::evaluate(item, scope)).collect();
@@ -110,16 +111,5 @@ impl Interpreter {
     pub fn error<T>(msg: &str) -> Result<T, Error> {
         let msg = msg.to_string();
         Err(Error { msg, start: Position::new(), end: Position::new() })
-    }
-}
-
-pub struct SystemProps {
-    pub memory_size: (usize, usize),
-    pub memory_type: usize,
-}
-
-impl SystemProps {
-    pub fn new() -> Self {
-        Self { memory_size: (20, 20), memory_type: 0 }
     }
 }

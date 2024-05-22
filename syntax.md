@@ -16,6 +16,8 @@ centre_value can be replaced with a number to pattern match the centre value, si
 otherwise conditionals can be done through the conditional part of the coroutine
 outcomes are then applied to the cell if it matches the conditionals.
 
+These can also be started with a `.` to indicate a value being printed to stdout
+
 # Directionals
 @ can be used to "load" a directional, or cell in a certain direction from the centre.
 values include:
@@ -25,6 +27,7 @@ values include:
 @diag(onals)
 @dir(ect)
 Some of these return array values, and must be summed using ```=[value]```
+Those of these that are arrays can accessed randomly by a ?
 
 # Counts
 `#[conditional]` returns the count of a conditional, eg:
