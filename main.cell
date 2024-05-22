@@ -1,13 +1,11 @@
-~a b;4|b;4|b;4~
-!b 30
-!a 10
+~a b;3|b;4|b;4 ~
+!b = 30
+!a = 10
 
-f(a) = #a>=3 || r(a)
-r(a) = a>=3a
+|> f(a) = #a>=3 || r(a)
+|> r(a) = sum(@n, @w) > 3 >= 3
+|> o(a) = 3*a 
 
-main a = @north > 4 || south(b) => b;
-main b = #a == 1 => b;
-main centre = | @north > 4  => 
-              | 
-              | 
-
+@10 |> @north > 4 || @south == b => b
+@30 |> #a == 1 => b
+@centre |> @north > 4 => 0 * 7

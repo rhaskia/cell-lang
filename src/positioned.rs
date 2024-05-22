@@ -1,25 +1,37 @@
 use std::{
     cmp::Ordering,
     ops::{Deref, DerefMut},
+    fmt::{Debug, Formatter},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Position {
     pub line: usize,
     pub col: usize,
+    pub end: bool,
 }
 
 impl Position {
     pub fn new() -> Self {
-        Self { line: 1, col: 1 }
+        Self { line: 1, col: 1, end: false }
+    }
+
+    pub fn end() -> Self {
+        Self { line: 1, col: 1, end: true }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Positioned<T> {
     pub inner: T,
     pub start: Position,
     pub end: Position,
+}
+
+impl<T: Debug> Debug for Positioned<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        self.inner.fmt(f)
+    }
 }
 
 impl<T> Deref for Positioned<T> {

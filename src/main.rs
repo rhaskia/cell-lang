@@ -30,11 +30,16 @@ fn main() {
     }
 
     let mut interp = interpreter::Interpreter::new(ast.unwrap());
-    println!("{:?}", interp.interpret());
+    println!("err {:?}", interp.interpret());
 }
 
 pub fn build_error(program: &str, error: Error) -> String {
     let mut lines = program.lines();
+
+    if error.start.end {
+        return String::from(error.msg);
+    }
+
     let Error { msg, start, end } = error;
     let error_point =
         format!("{}{}", " ".repeat(start.col - 2), "^".repeat(end.col - start.col + 1));

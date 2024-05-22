@@ -17,18 +17,18 @@ impl Parser {
     }
 
     pub fn error<T>(token: &Positioned<Token>, msg: &str) -> Result<T, Error> {
-        Err(Error { msg: msg.to_string(), start: token.start, end: token.end })
+        Err(Self::raw_error(token, msg))
     }
 
-    pub fn eof_error(msg: &str) -> Error {
-        Error { msg: msg.to_string(), start: Position::new(), end: Position::new() }
+    pub fn raw_error(token: &Positioned<Token>, msg: &str) -> Error {
+        Error { msg: msg.to_string(), start: token.start, end: token.end }
     }
 
     #[throws]
     pub fn parse(&mut self) -> Vec<PNode> {
         let mut ast = Vec::new();
 
-        while self.peek().is_ok() {
+        while !self.peek().is_eof() {
             ast.push(self.statement()?);
         }
 
@@ -53,8 +53,8 @@ impl Parser {
     pub fn expr(&mut self) -> PNode {
         let left = self.call()?;
 
-        if Self::is_op(&self.peek()?.inner) {
-            let op = self.next()?.inner.clone();
+        if Self::is_op(&self.peek().inner) {
+            let op = self.next().inner.clone();
             let right = self.expr()?;
 
             // ordering switching
@@ -79,11 +79,11 @@ impl Parser {
         let mut expr = self.simple()?;
         let start = expr.start;
         loop {
-            match self.peek()?.inner {
+            match self.peek().inner {
                 Token::OpenParen => {
-                    self.next()?;
+                    self.next();
                     let args =
-                        if self.peek()?.is_close_paren() { Vec::new() } else { self.expr_list()? };
+                        if self.peek().is_close_paren() { Vec::new() } else { self.expr_list()? };
                     let end = self.next_ensure(Token::CloseParen)?.end;
                     expr = Positioned {
                         inner: Node::Call { expr: Box::new(expr.clone()), args },
@@ -91,17 +91,6 @@ impl Parser {
                         end,
                     };
                 }
-                Token::OpenBracket => {
-                    self.next()?;
-                    let arg = Box::new(self.expr()?);
-                    let end = self.next_ensure(Token::CloseBracket)?.end;
-                    expr = Positioned {
-                        inner: Node::Get { expr: Box::new(expr.clone()), arg },
-                        start,
-                        end,
-                    };
-                }
-                Token::Period => {}
                 _ => break,
             };
         }
@@ -110,22 +99,19 @@ impl Parser {
 
     #[throws]
     fn func_statement(&mut self) -> PNode {
-        let start = self.last()?.start;
+        let start = self.last().start;
         let name = self.next_ident()?;
 
         let mut params = Vec::new();
-        if self.peek()?.is_open_paren() {
-            self.next()?;
+        if self.peek().is_open_paren() {
+            self.next();
             params = self.identifier_list()?;
             self.next_ensure(Token::CloseParen)?;
         }
 
-        self.next_ensure(Token::OpenBrace)?;
-        let mut body = Vec::new();
-        while !self.peek()?.is_close_brace() {
-            body.push(self.statement()?);
-        }
-        let end = self.next_ensure(Token::CloseBrace)?.end;
+        self.next_ensure(Token::Define)?;
+        let body = Box::new(self.expr()?);
+        let end = body.end;
 
         Positioned { inner: Node::Function { name, params, body }, start, end }
     }
@@ -135,8 +121,8 @@ impl Parser {
         let mut idents = Vec::new();
 
         idents.push(self.next_ident()?);
-        while self.peek()?.is_comma() {
-            self.next()?;
+        while self.peek().is_comma() {
+            self.next();
             idents.push(self.next_ident()?);
         }
 
@@ -145,14 +131,12 @@ impl Parser {
 
     #[throws]
     pub fn statement(&mut self) -> PNode {
-        let next = self.next()?.inner.clone();
+        let next = self.next().inner.clone();
         match &next {
-            Token::Keyword(Keyword::Fn) => self.func_statement()?,
-            Token::Keyword(Keyword::Return) => self.return_statement()?,
-            Token::Keyword(Keyword::For) => self.for_statement()?,
-            Token::Keyword(Keyword::If) => self.if_statement()?,
             Token::Tilde => self.memory_statement()?,
             Token::Not => self.variable()?,
+            Token::Pipeline => self.func_statement()?,
+            Token::At => self.main_statement()?,
             _ => {
                 self.backtrack();
                 let expr = self.expr()?;
@@ -162,25 +146,36 @@ impl Parser {
         }
     }
 
+    #[throws]
+    pub fn main_statement(&mut self) -> PNode {
+        let start = self.last().start;
+        let centre = Box::new(self.expr()?);
+        self.next_ensure(Token::Pipeline)?;
+        let conditional = Box::new(self.expr()?);
+        self.next_ensure(Token::Arrow)?;
+        let result = Box::new(self.expr()?);
+        let end = result.end;
+        Positioned { inner: Node::Main { centre, conditional, result }, start, end }
+    }
 
     #[throws]
     pub fn memory_statement(&mut self) -> PNode {
-        let start = self.last()?.start;
+        let start = self.last().start;
         let mut data = vec![vec![]];
         let mut row = 0;
-        while !self.peek()?.is_tilde() {
-            let next = self.next()?;
+        while !self.peek().is_tilde() {
+            let next = self.next();
             match next.inner {
                 Token::Identifier(ident) => {
-                    if self.peek()?.is_semicolon() {
-                        self.next()?;
+                    if self.peek().is_semicolon() {
+                        self.next();
                         let count = self.next_number()?;
                         for _ in 0..count {
                             data[row].push(ident.clone());
                         }
                     }
                 },
-                Token::Pipe => { row += 1; }
+                Token::Pipe => { data.push(vec![]); row += 1; }
                 _ => {}
             }
         }
@@ -189,48 +184,10 @@ impl Parser {
     }
 
     #[throws]
-    pub fn return_statement(&mut self) -> PNode {
-        let start = self.last()?.start;
-        let expr = self.expr()?;
-        let end = self.next_ensure(Token::Semicolon)?.end;
-        Positioned { inner: Node::Return(Box::new(expr)), start, end }
-    }
-
-    #[throws]
-    pub fn if_statement(&mut self) -> PNode {
-        let start = self.last()?.start;
-        let expr = Box::new(self.expr()?);
-        self.next_ensure(Token::OpenBrace)?;
-        let mut body = Vec::new();
-        while !self.peek()?.is_close_brace() {
-            body.push(self.statement()?);
-        }
-        let end = self.next_ensure(Token::CloseBrace)?.end;
-
-        Positioned { inner: Node::If { expr, body }, start, end }
-    }
-
-    #[throws]
-    pub fn for_statement(&mut self) -> PNode {
-        let start = self.last()?.start;
-        let item = self.next_ident()?;
-        self.next_ensure(Token::Keyword(Keyword::In))?;
-        let iterator = Box::new(self.expr()?);
-
-        self.next_ensure(Token::OpenBrace)?;
-        let mut body = Vec::new();
-        while !self.peek()?.is_close_brace() {
-            body.push(self.statement()?);
-        }
-        let end = self.next_ensure(Token::CloseBrace)?.end;
-
-        Positioned { inner: Node::ForLoop { item, iterator, body }, start, end }
-    }
-
-    #[throws]
     pub fn variable(&mut self) -> PNode {
-        let start = self.last()?.start;
+        let start = self.last().start;
         let name = self.next_ident()?;
+        self.next_ensure(Token::Define)?;
         let value = Box::new(self.expr()?);
         let end = value.end;
 
@@ -239,7 +196,7 @@ impl Parser {
 
     #[throws]
     pub fn simple(&mut self) -> PNode {
-        let token = self.next()?;
+        let token = self.next();
         let start = token.start;
         let end = token.end;
         match &token.inner {
@@ -248,7 +205,7 @@ impl Parser {
             }
             Token::OpenBracket => {
                 let mut items = Vec::new();
-                if !self.peek()?.inner.is_close_bracket() {
+                if !self.peek().inner.is_close_bracket() {
                     items = self.expr_list()?;
                 }
                 let end = self.next_ensure(Token::CloseBracket)?.end;
@@ -259,9 +216,9 @@ impl Parser {
             }
             Token::OpenParen => {
                 let expr = self.expr()?;
-                match self.peek()?.inner {
+                match self.peek().inner {
                     Token::CloseParen => {
-                        self.next()?;
+                        self.next();
                         expr
                     }
                     Token::Comma => {
@@ -273,6 +230,12 @@ impl Parser {
                     _ => Self::error(&token, &format!("Expected , or ), found {}", token.inner))?,
                 }
             }
+            Token::At => {
+                let start = self.last().start;
+                let name = self.next_ident()?;
+                let end = self.last().end;
+                Positioned { inner: Node::Directional(name), start, end }
+            }
             _ => Self::error(&token, &format!("Expected expression but got {}", token.inner))?,
         }
     }
@@ -281,19 +244,22 @@ impl Parser {
     pub fn expr_list(&mut self) -> Vec<PNode> {
         let mut exprs = Vec::new();
         exprs.push(self.expr()?);
-        while self.peek()?.inner == Token::Comma {
-            self.next()?;
+        while self.peek().inner == Token::Comma {
+            self.next();
             exprs.push(self.expr()?);
         }
         exprs
     }
 
-    pub fn peek(&mut self) -> Result<&Positioned<Token>, Error> {
-        self.tokens.get(self.index).ok_or(Self::eof_error("Token expected, EOF found"))
+    pub fn peek(&mut self) -> Positioned<Token> {
+        match self.tokens.get(self.index) {
+            Some(token) => token.clone(),
+            None => Positioned { inner: Token::EOF, start: Position::end(), end: Position::end()},
+        }
     }
 
     pub fn next_ensure(&mut self, token: Token) -> Result<Positioned<Token>, Error> {
-        let next = self.next()?;
+        let next = self.next();
         if next.inner != token {
             return Self::error(&next, &format!("Expected {token} found {}", next.inner));
         }
@@ -301,7 +267,7 @@ impl Parser {
     }
 
     pub fn next_ident(&mut self) -> Result<String, Error> {
-        let next = self.next()?;
+        let next = self.next();
         if let Token::Identifier(ident) = &next.inner {
             Ok(ident.clone())
         } else {
@@ -310,7 +276,7 @@ impl Parser {
     }
 
     pub fn next_number(&mut self) -> Result<i32, Error> {
-        let next = self.next()?;
+        let next = self.next();
         if let Token::Literal(Value::Int(ident)) = &next.inner {
             Ok(ident.clone())
         } else {
@@ -318,13 +284,16 @@ impl Parser {
         }
     }
 
-    pub fn next(&mut self) -> Result<Positioned<Token>, Error> {
+    pub fn next(&mut self) -> Positioned<Token> {
         self.index += 1;
-        self.tokens.get(self.index - 1).cloned().ok_or(Self::eof_error("Token expected, EOF found"))
+        match self.tokens.get(self.index - 1) {
+            Some(token) => token.clone(),
+            None => Positioned { inner: Token::EOF, start: Position::end(), end: Position::end()},
+        }
     }
 
-    pub fn last(&mut self) -> Result<Positioned<Token>, Error> {
-        self.tokens.get(self.index - 1).cloned().ok_or(Self::eof_error("Token expected, EOF found"))
+    pub fn last(&mut self) -> Positioned<Token> {
+        self.tokens.get(self.index - 1).unwrap().clone()
     }
 
     pub fn backtrack(&mut self) {

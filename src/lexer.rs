@@ -44,7 +44,8 @@ impl Lexer {
                 '*' => tokens.push(self.wrap(Token::Asterisk)),
                 '^' => tokens.push(self.wrap(Token::Carat)),
                 '~' => tokens.push(self.wrap(Token::Tilde)),
-                '!' => tokens.push(self.wrap(Token::Tilde)),
+                '!' => tokens.push(self.wrap(Token::Not)),
+                '@' => tokens.push(self.wrap(Token::At)),
 
                 '{' => tokens.push(self.wrap(Token::OpenBrace)),
                 '}' => tokens.push(self.wrap(Token::CloseBrace)),
@@ -202,6 +203,7 @@ pub enum Token {
     Semicolon,
     Period,
     Tilde,
+    At,
 
     Minus,
     Plus,
@@ -236,6 +238,8 @@ pub enum Token {
 
     Keyword(Keyword),
     Identifier(String),
+
+    EOF,
 }
 
 #[derive(Debug, PartialEq, EnumString, Clone)]

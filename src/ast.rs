@@ -13,16 +13,13 @@ pub enum Node {
     Array(Vec<PNode>),
     Variable(String),
     Binary { left: Box<PNode>, op: Token, right: Box<PNode> },
-    Function { name: String, params: Vec<String>, body: Vec<PNode> },
-    Return(Box<PNode>),
-    ForLoop { item: String, iterator: Box<PNode>, body: Vec<PNode> },
-    If { expr: Box<PNode>, body: Vec<PNode> },
     Call { expr: Box<PNode>, args: Vec<PNode> },
-    Get { expr: Box<PNode>, arg: Box<PNode> },
     Tuple(Vec<PNode>),
-
+    Function { name: String, params: Vec<String>, body: Box<PNode> },
     Memory(Vec<Vec<String>>),
     Definition { name: String, value: Box<PNode> },
+    Directional(String),
+    Main { centre: Box<PNode>, conditional: Box<PNode>, result: Box<PNode> }
 }
 
 impl PNode {
