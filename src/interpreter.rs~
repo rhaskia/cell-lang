@@ -53,7 +53,7 @@ impl Interpreter {
                 }
                 Node::Main { centre, conditional, result, print } => {}
                 Node::Memory(memory) => {
-                    self.memory = memory.into_iter().map(|r| r.into_iter().map(|item| self.constants[&item].clone()).collect()).collect();
+                    self.memory = memory.into_iter().map(|r| r.into_iter().map(|item| self.constants[&item]).collect()).collect();
                 }
                 _ => {
                     println!("{:?}", node);

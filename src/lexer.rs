@@ -38,6 +38,7 @@ impl Lexer {
                 ':' => tokens.push(self.wrap(Token::Colon)),
                 ';' => tokens.push(self.wrap(Token::Semicolon)),
                 '.' => tokens.push(self.wrap(Token::Period)),
+                '$' => tokens.push(self.wrap(Token::Sign)),
 
                 '-' => tokens.push(self.wrap(Token::Minus)),
                 '+' => tokens.push(self.wrap(Token::Plus)),
@@ -204,6 +205,7 @@ pub enum Token {
     Period,
     Tilde,
     At,
+    Sign,
 
     Minus,
     Plus,

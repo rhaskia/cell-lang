@@ -136,7 +136,8 @@ impl Parser {
             Token::Tilde => self.memory_statement()?,
             Token::Not => self.variable()?,
             Token::Pipeline => self.func_statement()?,
-            Token::At => self.main_statement()?,
+            Token::At => self.main_statement(false)?,
+            Token::Sign => self.main_statement(true)?,
             _ => {
                 self.backtrack();
                 let expr = self.expr()?;
@@ -147,7 +148,7 @@ impl Parser {
     }
 
     #[throws]
-    pub fn main_statement(&mut self) -> PNode {
+    pub fn main_statement(&mut self, print: bool) -> PNode {
         let start = self.last().start;
         let centre = Box::new(self.expr()?);
         self.next_ensure(Token::Pipeline)?;
@@ -155,7 +156,7 @@ impl Parser {
         self.next_ensure(Token::Arrow)?;
         let result = Box::new(self.expr()?);
         let end = result.end;
-        Positioned { inner: Node::Main { centre, conditional, result }, start, end }
+        Positioned { inner: Node::Main { centre, conditional, result, print }, start, end }
     }
 
     #[throws]
