@@ -19,7 +19,8 @@ pub enum Node {
     Memory(Vec<Vec<String>>),
     Definition { name: String, value: Box<PNode> },
     Directional(String),
-    Main { centre: Box<PNode>, conditional: Box<PNode>, result: Box<PNode>, print: bool }
+    Sum(Box<PNode>),
+    Main { centre: Box<PNode>, conditional: Box<PNode>, result: Box<PNode>, print: bool },
 }
 
 impl PNode {

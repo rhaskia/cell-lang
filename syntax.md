@@ -7,6 +7,10 @@ identifier/expr: represents what the memory is
 # Functions
 Functions can be defined with |>.
 They are used to change data (ints/bools) (although these are interchangeable)
+examples:
+|> f(a) = #a>=3 || r(a)
+|> r(a) = sum(@n, @w) > 3 >= 3
+|> o(a) = 3*a 
 
 # Main Coroutine
 main defines the conditionals and outcomes

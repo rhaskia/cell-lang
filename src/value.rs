@@ -4,7 +4,7 @@ use strum_macros::Display;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Display)]
 pub enum Value {
-    Int(i32),
+    Int(u8),
     Float(f32),
     String(String),
     Char(char),
@@ -12,6 +12,7 @@ pub enum Value {
     Bool(bool),
     Function(fn(HashMap<String, Value>) -> Value),
     Unit,
+    Unknown,
 }
 
 type Error = String;
@@ -35,6 +36,7 @@ impl Value {
             Value::Bool(b) => *b,
             Value::Function(_) => true,
             Value::Unit => false,
+            Value::Unknown => true,
         }
     }
 
@@ -49,7 +51,7 @@ impl Value {
         }
     }
 
-    pub fn repeat_array(array: Vec<Value>, repeat: i32) -> Value {
+    pub fn repeat_array(array: Vec<Value>, repeat: u8) -> Value {
         Value::Array(vec![array; repeat as usize].iter().flat_map(|i| i.clone()).collect())
     }
 
@@ -82,5 +84,12 @@ impl Value {
             (Self::Float(i), Self::Int(j)) => Some(Value::Float(i - *j as f32)),
             _ => None,
         }
+    }
+
+    pub fn as_num(&self) -> u8 {
+        if let Self::Int(n) = self {
+           return *n; 
+        }
+        panic!("Expected number");
     }
 }

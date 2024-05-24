@@ -3,7 +3,6 @@ use crate::positioned::Positioned;
 use crate::value::Value;
 use fehler::throws;
 use macros::{match_tokens, match_two};
-use std::ops::{Deref, DerefMut};
 use std::{f32, str::FromStr};
 use strum_macros::{EnumIs, EnumString};
 
@@ -39,6 +38,8 @@ impl Lexer {
                 ';' => tokens.push(self.wrap(Token::Semicolon)),
                 '.' => tokens.push(self.wrap(Token::Period)),
                 '$' => tokens.push(self.wrap(Token::Sign)),
+                '_' => tokens.push(self.wrap(Token::Underscore)),
+                '#' => tokens.push(self.wrap(Token::Hash)),
 
                 '-' => tokens.push(self.wrap(Token::Minus)),
                 '+' => tokens.push(self.wrap(Token::Plus)),
@@ -100,7 +101,7 @@ impl Lexer {
                     tokens.push(self.wrap(self.number(number)?));
                 }
 
-                'a'..='z' | 'A'..='Z' | '_' => {
+                'a'..='z' | 'A'..='Z' => {
                     let mut ident = token.to_string();
                     while let Ok(peeked) = self.peek() {
                         if !is_alphanumeric(peeked) {
@@ -180,7 +181,7 @@ impl Lexer {
             let value = str::parse::<f32>(&cleaned).unwrap();
             Token::Literal(Value::Float(value))
         } else {
-            let value = str::parse::<i32>(&cleaned).unwrap();
+            let value = str::parse::<u8>(&cleaned).unwrap();
             Token::Literal(Value::Int(value))
         }
     }
@@ -206,6 +207,8 @@ pub enum Token {
     Tilde,
     At,
     Sign,
+    Underscore,
+    Hash,
 
     Minus,
     Plus,

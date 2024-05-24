@@ -177,6 +177,13 @@ impl Parser {
                     }
                 },
                 Token::Pipe => { data.push(vec![]); row += 1; }
+                Token::Semicolon => {
+                    let repeat = self.next_number()?;
+                    for _ in 1..repeat {
+                        data.push(data[data.len() - 1].clone());
+                        row += 1;
+                    }
+                }
                 _ => {}
             }
         }
@@ -237,6 +244,19 @@ impl Parser {
                 let end = self.last().end;
                 Positioned { inner: Node::Directional(name), start, end }
             }
+            Token::Underscore => {
+                let last = self.last();
+                let end = last.end;
+                let start = last.start;
+                Positioned { inner: Node::Literal(Value::Unknown), start, end }
+            }
+            Token::Hash => {
+                let start = self.last().end;
+                self.next_ensure(Token::OpenParen);
+                let expr = Box::new(self.expr()?);
+                let end = self.next_ensure(Token::CloseParen)?.end;
+                Positioned { inner: Node::Sum(expr), start, end }
+            }
             _ => Self::error(&token, &format!("Expected expression but got {}", token.inner))?,
         }
     }
@@ -272,16 +292,16 @@ impl Parser {
         if let Token::Identifier(ident) = &next.inner {
             Ok(ident.clone())
         } else {
-            Self::error(&next, &format!("Exptected identifier found {:?}", next.inner))
+            Self::error(&next, &format!("Expected identifier found {:?}", next.inner))
         }
     }
 
-    pub fn next_number(&mut self) -> Result<i32, Error> {
+    pub fn next_number(&mut self) -> Result<u8, Error> {
         let next = self.next();
         if let Token::Literal(Value::Int(ident)) = &next.inner {
             Ok(ident.clone())
         } else {
-            Self::error(&next, &format!("Exptected identifier found {:?}", next.inner))
+            Self::error(&next, &format!("Expected identifier found {:?}", next.inner))
         }
     }
 
