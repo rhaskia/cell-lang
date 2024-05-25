@@ -1,16 +1,21 @@
+// fibonacci program
+
 !a = 255
 !b = 254
-!c = 60
-!d = 70
-~c;1 d;1|a;1 b;1~
+!c = 253
+!d = 0
+!e = 1
+!f = 1
+~d;1 e;1 a;1|c;1 f;1 b;1~
 
-@255 |> 1==1 => 255
-@254 |> 1==1 => 254
+// number 1 aka d
+@_ |> @south == c => @right
+// n 2 aka e
+@_ |> @right == a => @south
+// n 3 aka f
+@_ |> @right == b => @north + @northwest
 
-@0 |> @south == 254 => (@west > 1) * c
-@_ |> @south == 254 => @centre - 10
-@0 |> @south == 255 => 0
-@_ |> @south == 255 => @centre - (@east == 0) * 10
+// pointers
+@_ |> @centre > 250 => @centre
 
-$0 |> @south == 254 => ' '
-$_ |> @south == 254 => 72 - (@centre / 10)
+$_ |> @right == b => @centre

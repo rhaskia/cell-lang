@@ -60,7 +60,7 @@ impl Interpreter {
     }
 
     pub fn init_screen(&mut self) {
-        let height = self.memory.len() / 2;
+        let height = (self.memory.len() as f32 / 2.0).round() as usize;
         let width = self.memory[0].len();
         for _ in 0..height {
             println!(" {}", "▒".repeat(width));
@@ -68,7 +68,7 @@ impl Interpreter {
     }
 
     pub fn draw_screen(&mut self) {
-        let height = self.memory.len() / 2;
+        let height = (self.memory.len() as f32 / 2.0).round() as usize;
         let width = self.memory[0].len();
 
         println!("\x1b[{}A\r", height + 1);
@@ -247,6 +247,10 @@ impl Interpreter {
             "west" | "left" => {
                 if x == 0 { return Value::Int(0); }
                 Value::Int(self.get_cell(x - 1, y))
+            },
+            "northwest" => {
+                if x == 0 || y == 0 { return Value::Int(0); }
+                Value::Int(self.get_cell(x - 1, y - 1))
             },
             _ => Value::Unknown,
         }

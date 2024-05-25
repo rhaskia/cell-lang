@@ -47,7 +47,7 @@ impl Value {
             (Self::Float(i), Self::Float(j)) => Some(Value::Float(*i * j)),
             (Self::Float(i), Self::Int(j)) => Some(Value::Float(i * *j as f32)),
             (Self::Array(a), Self::Int(i)) => Some(Self::repeat_array(a.clone(), *i)),
-            (Self::Bool(b), Self::Int(i)) => Some(Value::Int(i * if *b {1} else {0})),
+            (Self::Bool(b), Self::Int(i)) => Some(Value::Int(i * if *b { 1 } else { 0 })),
             _ => None,
         }
     }
@@ -68,7 +68,7 @@ impl Value {
 
     pub fn add(&self, other: &Value) -> Option<Value> {
         match (self, other) {
-            (Self::Int(i), Self::Int(j)) => Some(Value::Int(i + j)),
+            (Self::Int(i), Self::Int(j)) => Some(Value::Int(i.checked_add(*j)?)),
             (Self::Int(i), Self::Float(j)) => Some(Value::Float((*i as f32) + j)),
             (Self::Float(i), Self::Int(j)) => Some(Value::Float(i + *j as f32)),
             (Self::Float(i), Self::Float(j)) => Some(Value::Float(*i + j)),
@@ -92,7 +92,13 @@ impl Value {
             Value::Int(i) => *i,
             Value::Float(f) => f.round() as u8,
             Value::Char(c) => *c as u8,
-            Value::Bool(b) => if *b { 0 } else { 1 },
+            Value::Bool(b) => {
+                if *b {
+                    0
+                } else {
+                    1
+                }
+            }
             Value::Unit => 0,
             Value::Unknown => 0,
             _ => panic!("Expected number"),
