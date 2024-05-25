@@ -252,6 +252,10 @@ impl Interpreter {
                 if x == 0 || y == 0 { return Value::Int(0); }
                 Value::Int(self.get_cell(x - 1, y - 1))
             },
+            "northeast" => {
+                if y == 0 { return Value::Int(0); }
+                Value::Int(self.get_cell(x + 1, y - 1))
+            },
             _ => Value::Unknown,
         }
     }
@@ -275,6 +279,7 @@ impl Interpreter {
             Token::Slash => left.div(&right),
             Token::Or => left.or(&right),
             Token::And => left.and(&right),
+            Token::Mod => left.modulus(&right),
             _ => Some(Value::Bool(match op {
                 Token::Equals => left == right,
                 Token::NotEquals => left != right,

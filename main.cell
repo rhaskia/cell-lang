@@ -4,18 +4,22 @@
 !b = 254
 !c = 253
 !d = 0
-!e = 1
+!e = 0
 !f = 1
-~d;1 e;1 a;1|c;1 f;1 b;1~
+!pa = 250
+!pb = 251
+!pc = 252
+!pd = 249
+!empty = 248
+~d;1 e;1 a;1|c;1 f;1 b;1|pa;1 pb;1 pc;1|empty;2 pd;1~
 
-// number 1 aka d
+@empty |> 1 => empty
+@_ |> @centre > 240 => @centre
 @_ |> @south == c => @right
-// n 2 aka e
 @_ |> @right == a => @south
-// n 3 aka f
 @_ |> @right == b => @north + @northwest
 
-// pointers
-@_ |> @centre > 250 => @centre
-
-$_ |> @right == b => @centre
+$250 |> @northeast > 99  => 48 + (@northeast / 100)
+$251 |> @north > 9  => 48 + ((@north - (@north % 10) % 100) / 10)
+$252 |> 1 => (@northwest % 10) + 48
+$249 |> 1 => 32

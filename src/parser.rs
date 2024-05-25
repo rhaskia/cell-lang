@@ -38,7 +38,7 @@ impl Parser {
     pub fn op_order(token: &Token) -> usize {
         use Token::*;
         match token {
-            Lesser | LesserThan | Greater | GreaterThan | Or | And | NotEquals | Equals => 0,
+            Lesser | LesserThan | Greater | GreaterThan | Or | And | NotEquals | Equals | Mod => 0,
             Plus | Minus => 1,
             Asterisk | Slash => 2,
             _ => 100,

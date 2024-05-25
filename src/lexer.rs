@@ -40,14 +40,14 @@ impl Lexer {
                 '$' => tokens.push(self.wrap(Token::Sign)),
                 '_' => tokens.push(self.wrap(Token::Underscore)),
                 '#' => tokens.push(self.wrap(Token::Hash)),
+                '@' => tokens.push(self.wrap(Token::At)),
 
                 '-' => tokens.push(self.wrap(Token::Minus)),
                 '+' => tokens.push(self.wrap(Token::Plus)),
                 '*' => tokens.push(self.wrap(Token::Asterisk)),
                 '^' => tokens.push(self.wrap(Token::Carat)),
                 '~' => tokens.push(self.wrap(Token::Tilde)),
-                '!' => tokens.push(self.wrap(Token::Not)),
-                '@' => tokens.push(self.wrap(Token::At)),
+                '%' => tokens.push(self.wrap(Token::Mod)),
 
                 '{' => tokens.push(self.wrap(Token::OpenBrace)),
                 '}' => tokens.push(self.wrap(Token::CloseBrace)),
@@ -56,8 +56,9 @@ impl Lexer {
                 '(' => tokens.push(self.wrap(Token::OpenParen)),
                 ')' => tokens.push(self.wrap(Token::CloseParen)),
 
-                '&' => match_two!(self, tokens, '&', And),
                 '|' => match_tokens!(self, tokens, Pipe, '>' => Pipeline, '|' => Or),
+                '&' => match_two!(self, tokens, '&', And),
+                '!' => match_tokens!(self, tokens, Not, '=' => NotEquals),
                 '>' => match_tokens!(self, tokens, Greater, '=' => GreaterThan),
                 '<' => match_tokens!(self, tokens, Lesser, '=' => LesserThan),
                 '=' => match_tokens!(self, tokens, Define, '=' => Equals, '>' => Arrow),
@@ -215,6 +216,7 @@ pub enum Token {
     Asterisk,
     Slash,
     Carat,
+    Mod,
 
     OpenBrace,
     CloseBrace,

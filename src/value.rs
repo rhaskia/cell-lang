@@ -68,7 +68,7 @@ impl Value {
 
     pub fn add(&self, other: &Value) -> Option<Value> {
         match (self, other) {
-            (Self::Int(i), Self::Int(j)) => Some(Value::Int(i.checked_add(*j)?)),
+            (Self::Int(i), Self::Int(j)) => Some(Value::Int(i.wrapping_add(*j))),
             (Self::Int(i), Self::Float(j)) => Some(Value::Float((*i as f32) + j)),
             (Self::Float(i), Self::Int(j)) => Some(Value::Float(i + *j as f32)),
             (Self::Float(i), Self::Float(j)) => Some(Value::Float(*i + j)),
@@ -83,6 +83,13 @@ impl Value {
             (Self::Int(i), Self::Float(j)) => Some(Value::Float((*i as f32) - j)),
             (Self::Float(i), Self::Float(j)) => Some(Value::Float(*i - j)),
             (Self::Float(i), Self::Int(j)) => Some(Value::Float(i - *j as f32)),
+            _ => None,
+        }
+    }
+
+    pub fn modulus(&self, other: &Value) -> Option<Value> {
+        match (self, other) {
+            (Self::Int(i), Self::Int(j)) => Some(Value::Int(i % j)),
             _ => None,
         }
     }
