@@ -22,7 +22,7 @@ fn main() {
     let mut parser = parser::Parser::new(tokens.unwrap());
     let ast = parser.parse();
     match ast {
-        Ok(ref _ast) => println!("{ast:?}"),
+        Ok(_) => {},
         Err(err) => {
             eprintln!("{}", build_error(program, err));
             return;

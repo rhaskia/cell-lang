@@ -47,6 +47,7 @@ impl Value {
             (Self::Float(i), Self::Float(j)) => Some(Value::Float(*i * j)),
             (Self::Float(i), Self::Int(j)) => Some(Value::Float(i * *j as f32)),
             (Self::Array(a), Self::Int(i)) => Some(Self::repeat_array(a.clone(), *i)),
+            (Self::Bool(b), Self::Int(i)) => Some(Value::Int(i * if *b {1} else {0})),
             _ => None,
         }
     }
@@ -87,9 +88,14 @@ impl Value {
     }
 
     pub fn as_num(&self) -> u8 {
-        if let Self::Int(n) = self {
-           return *n; 
+        match self {
+            Value::Int(i) => *i,
+            Value::Float(f) => f.round() as u8,
+            Value::Char(c) => *c as u8,
+            Value::Bool(b) => if *b { 0 } else { 1 },
+            Value::Unit => 0,
+            Value::Unknown => 0,
+            _ => panic!("Expected number"),
         }
-        panic!("Expected number");
     }
 }

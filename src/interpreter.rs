@@ -23,9 +23,11 @@ pub struct Interpreter {
     functions: HashMap<String, (Vec<String>, Box<PNode>)>,
     memory: Vec<Vec<u8>>,
     match_statements: Vec<(Box<PNode>, Box<PNode>, Box<PNode>)>,
+    print_statements: Vec<(Box<PNode>, Box<PNode>, Box<PNode>)>,
     index: usize,
     current_x: usize,
     current_y: usize,
+    out: usize,
 }
 
 impl Interpreter {
@@ -39,6 +41,8 @@ impl Interpreter {
             match_statements: Vec::new(),
             current_x: 0,
             current_y: 0,
+            out: 0,
+            print_statements: Vec::new(),
         }
     }
 
@@ -48,8 +52,10 @@ impl Interpreter {
         self.init_screen();
         loop {
             self.draw_screen();
-            thread::sleep(time::Duration::from_millis(1000));
             self.match_cells();
+            print!("\r\x1b[{}C", self.out + 1);
+            stdout().flush();
+            thread::sleep(time::Duration::from_millis(200));
         }
     }
 
@@ -88,6 +94,14 @@ impl Interpreter {
                 self.match_cell(x, y);
             }
         }
+
+        for y in 0..self.memory.len() {
+            for x in 0..self.memory[y].len() {
+                self.current_y = y;
+                self.current_x = x;
+                self.print_cell(x, y);
+            }
+        }
     }
 
     #[throws]
@@ -103,6 +117,26 @@ impl Interpreter {
                 }
             }
         }
+    }
+
+    #[throws]
+    pub fn print_cell(&mut self, x: usize, y: usize) {
+        for (centre, body, result) in &self.print_statements {
+            let c_eval = self.evaluate(centre)?;
+            if c_eval == Value::Unknown || self.memory[y][x] == c_eval.as_num() {
+                let b_eval = self.evaluate(body)?;
+                if b_eval == Value::Unknown || b_eval.as_bool() {
+                    let r_eval = self.evaluate(result)?;
+                    self.print(r_eval.as_num() as char);
+                    return;
+                }
+            }
+        }
+    }
+
+    pub fn print(&mut self, c: char) {
+        print!("\r\x1b[{}C{c}", self.out + 1);
+        self.out += 1;
     }
 
     pub fn ansi_colour(&self, v: u8, fg: bool) -> String {
@@ -143,7 +177,7 @@ impl Interpreter {
                 }
                 Node::Main { centre, conditional, result, print } => {
                     if print {
-
+                        self.print_statements.push((centre, conditional, result));
                     } else {
                         self.match_statements.push((centre, conditional, result));
                     }
@@ -203,10 +237,16 @@ impl Interpreter {
         let x = self.current_x;
         let y = self.current_y;
         match direction {
-            "north" => Value::Int(self.get_cell(x, y + 1)),
-            "south" => {
+            "south" | "down" => Value::Int(self.get_cell(x, y + 1)),
+            "north" | "up" => {
                 if y == 0 { return Value::Int(0); }
                 Value::Int(self.get_cell(x, y - 1))
+            },
+            "centre" | "self" => Value::Int(self.get_cell(x, y)),
+            "east" | "right" => Value::Int(self.get_cell(x + 1, y)),
+            "west" | "left" => {
+                if x == 0 { return Value::Int(0); }
+                Value::Int(self.get_cell(x - 1, y))
             },
             _ => Value::Unknown,
         }
