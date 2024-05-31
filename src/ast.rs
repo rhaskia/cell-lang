@@ -1,6 +1,6 @@
 use crate::positioned::Positioned;
 use crate::{
-    lexer::{Keyword, Token},
+    lexer::{Token},
     value::Value,
 };
 

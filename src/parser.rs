@@ -1,6 +1,6 @@
 use crate::ast::Node;
 use crate::value::Value;
-use crate::lexer::{Error, Keyword, Token};
+use crate::lexer::{Error, Token};
 use crate::positioned::{Position, Positioned};
 use fehler::throws;
 
@@ -252,7 +252,7 @@ impl Parser {
             }
             Token::Hash => {
                 let start = self.last().end;
-                self.next_ensure(Token::OpenParen);
+                self.next_ensure(Token::OpenParen)?;
                 let expr = Box::new(self.expr()?);
                 let end = self.next_ensure(Token::CloseParen)?.end;
                 Positioned { inner: Node::Sum(expr), start, end }

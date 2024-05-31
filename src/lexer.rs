@@ -82,7 +82,7 @@ impl Lexer {
                 }
 
                 '/' => {
-                    if self.matches('/') {
+                    if self.matches('/')? {
                         while self.peek_not('\n') {
                             let _ = self.next();
                         }
@@ -162,9 +162,10 @@ impl Lexer {
         self.current.col = 1;
     }
 
+    #[throws]
     pub fn matches(&mut self, item: char) -> bool {
         if self.program.get(self.index) == Some(&&item) {
-            self.next();
+            self.next()?;
             return true;
         }
         return false;
@@ -272,7 +273,7 @@ pub mod macros {
             {
                 let mut base = true;
                 $(
-                    if $s.matches($extra_char) {
+                    if $s.matches($extra_char)? {
                         $tokens.push($s.wrap(Token::$extra_token));
                         base = false;
                     }
@@ -286,7 +287,7 @@ pub mod macros {
 
     macro_rules! match_two {
         ($s:ident, $tokens:expr, $add_char:expr, $token:ident) => {{
-            if $s.matches($add_char) {
+            if $s.matches($add_char)? {
                 $tokens.push($s.wrap(Token::$token))
             }
         }};

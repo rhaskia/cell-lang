@@ -1,4 +1,5 @@
 use lexer::Error;
+use fehler::throws;
 mod ast;
 mod interpreter;
 mod lexer;
@@ -7,30 +8,38 @@ mod positioned;
 mod value;
 
 fn main() {
-    let program = &std::fs::read_to_string("main.cell").unwrap();
-
-    let mut lexer = lexer::Lexer::new(program.to_string());
-    let tokens = lexer.scan_tokens();
-    match tokens {
-        Ok(_) => {} //println!("{nodes:?}"),
-        Err(err) => {
-            eprintln!("{}", build_error(program, err));
+    let arg = match std::env::args().nth(1) {
+        Some(p) => p,
+        None => {
+            eprintln!("No file supplied. Please specify a file to run.");
             return;
         }
-    }
+    };
+    
+    let program = match std::fs::read_to_string(arg) {
+        Ok(file) => file,
+        Err(err) => {
+            eprintln!("Failed to open file: {err:?}");
+            return;
+        }
+    };
 
-    let mut parser = parser::Parser::new(tokens.unwrap());
-    let ast = parser.parse();
-    match ast {
+    match run_program(&program) {
         Ok(_) => {},
-        Err(err) => {
-            eprintln!("{}", build_error(program, err));
-            return;
-        }
+        Err(err) => eprintln!("{}", build_error(&program, err)),
     }
+}
 
-    let mut interp = interpreter::Interpreter::new(ast.unwrap());
-    println!("err {:?}", interp.interpret());
+#[throws]
+fn run_program(program: &str) {
+    let mut lexer = lexer::Lexer::new(program.to_string());
+    let tokens = lexer.scan_tokens()?;
+
+    let mut parser = parser::Parser::new(tokens);
+    let ast = parser.parse()?;
+
+    let mut interp = interpreter::Interpreter::new(ast);
+    interp.interpret()?;
 }
 
 pub fn build_error(program: &str, error: Error) -> String {

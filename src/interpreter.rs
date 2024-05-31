@@ -10,10 +10,9 @@ use crate::positioned::Positioned;
 use crate::value::Value;
 use crate::{
     ast::Node,
-    lexer::{Keyword, Token},
+    lexer::{Token},
 };
 use fehler::throws;
-use crossterm::terminal::size;
 
 type PNode = Positioned<Node>;
 
@@ -52,9 +51,9 @@ impl Interpreter {
         self.init_screen();
         loop {
             self.draw_screen();
-            self.match_cells();
+            self.match_cells()?;
             print!("\r\x1b[{}C", self.out + 1);
-            stdout().flush();
+            stdout().flush().unwrap();
             thread::sleep(time::Duration::from_millis(200));
         }
     }
@@ -86,12 +85,13 @@ impl Interpreter {
         }
     }
 
+    #[throws]
     pub fn match_cells(&mut self) {
         for y in 0..self.memory.len() {
             for x in 0..self.memory[y].len() {
                 self.current_y = y;
                 self.current_x = x;
-                self.match_cell(x, y);
+                self.match_cell(x, y)?;
             }
         }
 
@@ -99,7 +99,7 @@ impl Interpreter {
             for x in 0..self.memory[y].len() {
                 self.current_y = y;
                 self.current_x = x;
-                self.print_cell(x, y);
+                self.print_cell(x, y)?;
             }
         }
     }
