@@ -1,5 +1,5 @@
+#![feature(never_type)]
 use lexer::Error;
-use fehler::throws;
 mod ast;
 mod interpreter;
 mod lexer;
@@ -30,8 +30,7 @@ fn main() {
     }
 }
 
-#[throws]
-fn run_program(program: &str) {
+fn run_program(program: &str) -> Result<!, Error> {
     let mut lexer = lexer::Lexer::new(program.to_string());
     let tokens = lexer.scan_tokens()?;
 

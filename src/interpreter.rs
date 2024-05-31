@@ -21,8 +21,7 @@ pub struct Interpreter {
     constants: HashMap<String, Value>,
     functions: HashMap<String, (Vec<String>, Box<PNode>)>,
     memory: Vec<Vec<u8>>,
-    match_statements: Vec<(Box<PNode>, Box<PNode>, Box<PNode>)>,
-    print_statements: Vec<(Box<PNode>, Box<PNode>, Box<PNode>)>,
+    match_statements: Vec<(Box<PNode>, Option<Box<PNode>>, Box<PNode>, bool)>,
     index: usize,
     current_x: usize,
     current_y: usize,
@@ -41,12 +40,10 @@ impl Interpreter {
             current_x: 0,
             current_y: 0,
             out: 0,
-            print_statements: Vec::new(),
         }
     }
 
-    #[throws]
-    pub fn interpret(&mut self) {
+    pub fn interpret(&mut self) -> Result<!, Error> {
         self.load_instructions()?;
         self.init_screen();
         loop {
@@ -94,49 +91,32 @@ impl Interpreter {
                 self.match_cell(x, y)?;
             }
         }
-
-        for y in 0..self.memory.len() {
-            for x in 0..self.memory[y].len() {
-                self.current_y = y;
-                self.current_x = x;
-                self.print_cell(x, y)?;
-            }
-        }
     }
 
     #[throws]
-    pub fn match_cell(&mut self, x: usize, y: usize) {
-        for (centre, body, result) in &self.match_statements {
+    pub fn match_cell(&mut self, x: usize, y: usize,) {
+        let (mut has_printed, mut has_changed) = (false, false);
+        for (centre, body, result, print) in &self.match_statements {
+            if has_printed && *print { continue; }
+            if has_changed && !print { continue; }
+
             let c_eval = self.evaluate(centre)?;
-            if c_eval == Value::Unknown || self.memory[y][x] == c_eval.as_num() {
-                let b_eval = self.evaluate(body)?;
-                if b_eval == Value::Unknown || b_eval.as_bool() {
-                    let r_eval = self.evaluate(result)?;
-                    self.memory[y][x] = r_eval.as_num();
-                    return;
-                }
+            if c_eval != Value::Unknown && self.memory[y][x] != c_eval.as_num() { continue; }
+
+            if let Some(b) = body {
+                if !self.evaluate(b)?.as_bool() { continue; }
+            } 
+
+            let result = self.evaluate(result)?;
+            if *print {
+                print!("\r\x1b[{}C{}", self.out + 1, result.as_char());
+                self.out += 1;
+                has_printed = true;
+            } else {
+                self.memory[y][x] = result.as_num();
+                has_changed = true;
             }
         }
-    }
-
-    #[throws]
-    pub fn print_cell(&mut self, x: usize, y: usize) {
-        for (centre, body, result) in &self.print_statements {
-            let c_eval = self.evaluate(centre)?;
-            if c_eval == Value::Unknown || self.memory[y][x] == c_eval.as_num() {
-                let b_eval = self.evaluate(body)?;
-                if b_eval == Value::Unknown || b_eval.as_bool() {
-                    let r_eval = self.evaluate(result)?;
-                    self.print(r_eval.as_num() as char);
-                    return;
-                }
-            }
-        }
-    }
-
-    pub fn print(&mut self, c: char) {
-        print!("\r\x1b[{}C{c}", self.out + 1);
-        self.out += 1;
     }
 
     pub fn ansi_colour(&self, v: u8, fg: bool) -> String {
@@ -175,8 +155,8 @@ impl Interpreter {
                 Node::Function { name, params, body } => {
                     self.functions.insert(name.to_string(), (params, body)); 
                 }
-                Node::Main { centre, conditional, result } => {
-                        self.match_statements.push((centre, conditional, result));
+                Node::Main { centre, conditional, result, print } => {
+                    self.match_statements.push((centre, conditional, result, print));
                 }
                 Node::Memory(memory) => {
                     self.memory = memory.into_iter().map(|r| r.into_iter().map(|item| self.constants[&item].clone().as_num()).collect()).collect();
@@ -233,25 +213,30 @@ impl Interpreter {
         let x = self.current_x;
         let y = self.current_y;
         match direction {
-            "south" | "down" => Value::Int(self.get_cell(x, y + 1)),
-            "north" | "up" => {
+            "south" | "down" | "s" | "d" => Value::Int(self.get_cell(x, y + 1)),
+            "north" | "up" | "u" | "n" => {
                 if y == 0 { return Value::Int(0); }
                 Value::Int(self.get_cell(x, y - 1))
             },
-            "centre" | "self" => Value::Int(self.get_cell(x, y)),
-            "east" | "right" => Value::Int(self.get_cell(x + 1, y)),
-            "west" | "left" => {
+            "centre" | "self" | "c" => Value::Int(self.get_cell(x, y)),
+            "east" | "right" | "e" | "r" => Value::Int(self.get_cell(x + 1, y)),
+            "west" | "left" | "w" | "l" => {
                 if x == 0 { return Value::Int(0); }
                 Value::Int(self.get_cell(x - 1, y))
             },
-            "northwest" => {
+            "northwest" | "nw" => {
                 if x == 0 || y == 0 { return Value::Int(0); }
                 Value::Int(self.get_cell(x - 1, y - 1))
             },
-            "northeast" => {
+            "northeast" | "ne" => {
                 if y == 0 { return Value::Int(0); }
                 Value::Int(self.get_cell(x + 1, y - 1))
             },
+            "southwest" | "sw" => {
+                if x == 0 { return Value::Int(0); }
+                Value::Int(self.get_cell(x - 1, y + 1))
+            },
+            "southeast" | "se" => Value::Int(self.get_cell(x + 1, y + 1)),
             _ => Value::Unknown,
         }
     }

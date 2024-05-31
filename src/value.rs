@@ -40,6 +40,10 @@ impl Value {
         }
     }
 
+    pub fn as_char(&self) -> char {
+        self.as_num() as char
+    }
+
     pub fn mul(&self, other: &Value) -> Option<Value> {
         match (self, other) {
             (Self::Int(i), Self::Int(j)) => Some(Value::Int(i * j)),

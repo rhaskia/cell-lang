@@ -4,13 +4,13 @@
 !d = 70
 ~c;1 d;1|a;1 b;1~
 
-@255 |> 1==1 => 255
-@254 |> 1==1 => 254
+255 |> 255
+254 |> 254
 
-@0 |> @south == 254 => (@west > 1) * c
-@_ |> @south == 254 => @centre - 10
-@0 |> @south == 255 => 0
-@_ |> @south == 255 => @centre - (@east == 0) * 10
+0: @south == 254 |> (@west > 1) * c
+_: @south == 254 |> @centre - 10
+0: @south == 255 |> 0
+_: @south == 255 |> @centre - (@east == 0) * 10
 
-$0 |> @south == 254 => ' '
-$_ |> @south == 254 => 72 - (@centre / 10)
+254: @north == 0 && @northwest > 0 $ ' '
+254: @northwest > 0 $ 71 - (@north / 10)

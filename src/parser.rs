@@ -2,7 +2,7 @@ use crate::ast::Node;
 use crate::value::Value;
 use crate::lexer::{Error, Token};
 use crate::positioned::{Position, Positioned};
-use fehler::throws;
+use fehler::{throws, throw};
 
 type PNode = Positioned<Node>;
 
@@ -148,12 +148,20 @@ impl Parser {
     pub fn main_statement(&mut self, centre: PNode) -> PNode {
         let start = self.last().start;
         let centre = Box::new(centre);
-        self.next_ensure(Token::Pipeline)?;
-        let conditional = Box::new(self.expr()?);
-        self.next_ensure(Token::Arrow)?;
+        let mut conditional = None;
+        if *self.peek() == Token::Colon {
+            self.next();
+            conditional = Some(Box::new(self.expr()?));
+        }
+        let mut print;
+        match *self.next() {
+            Token::Pipeline => print = false,
+            Token::Sign => print = true,
+            _ => throw!(Self::raw_error(&self.last(), "Expected pipeline or sign")),
+        }
         let result = Box::new(self.expr()?);
         let end = result.end;
-        Positioned { inner: Node::Main { centre, conditional, result }, start, end }
+        Positioned { inner: Node::Main { centre, conditional, result, print }, start, end }
     }
 
     #[throws]

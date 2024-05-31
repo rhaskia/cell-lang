@@ -13,13 +13,13 @@
 !empty = 248
 ~d;1 e;1 a;1|c;1 f;1 b;1|pa;1 pb;1 pc;1|empty;2 pd;1~
 
-@empty |> 1 => empty
-@_ |> @centre > 240 => @centre
-@_ |> @south == c => @right
-@_ |> @right == a => @south
-@_ |> @right == b => @north + @northwest
+empty |> empty
+_: @centre > 240 |> @centre
+_: @south == c |> @right
+_: @right == a |> @south
+_: @right == b |> @north + @northwest
 
-$250 |> @northeast > 99  => 48 + (@northeast / 100)
-$251 |> @north > 9  => 48 + ((@north - (@north % 10) % 100) / 10)
-$252 |> 1 => (@northwest % 10) + 48
-$249 |> 1 => 32
+250: @northeast > 99 $ 48 + (@northeast / 100)
+251: @north > 9 $ 48 + ((@north - (@north % 10) % 100) / 10)
+252 $ (@northwest % 10) + 48
+249 $ 32
