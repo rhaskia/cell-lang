@@ -20,7 +20,7 @@ pub enum Node {
     Definition { name: String, value: Box<PNode> },
     Directional(String),
     Sum(Box<PNode>),
-    Main { centre: Box<PNode>, conditional: Box<PNode>, result: Box<PNode>, print: bool },
+    Main { centre: Box<PNode>, conditional: Box<PNode>, result: Box<PNode>},
 }
 
 impl PNode {

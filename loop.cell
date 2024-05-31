@@ -13,4 +13,4 @@
 @_ |> @south == 255 => @centre - (@east == 0) * 10
 
 $0 |> @south == 254 => ' '
-$_ |> @south == 254 => 71 - (@centre / 10)
+$_ |> @south == 254 => 72 - (@centre / 10)

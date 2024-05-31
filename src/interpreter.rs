@@ -175,12 +175,8 @@ impl Interpreter {
                 Node::Function { name, params, body } => {
                     self.functions.insert(name.to_string(), (params, body)); 
                 }
-                Node::Main { centre, conditional, result, print } => {
-                    if print {
-                        self.print_statements.push((centre, conditional, result));
-                    } else {
+                Node::Main { centre, conditional, result } => {
                         self.match_statements.push((centre, conditional, result));
-                    }
                 }
                 Node::Memory(memory) => {
                     self.memory = memory.into_iter().map(|r| r.into_iter().map(|item| self.constants[&item].clone().as_num()).collect()).collect();
