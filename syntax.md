@@ -14,11 +14,12 @@ examples:
 
 # Main Coroutine
 main defines the conditionals and outcomes
-it goes as such:
+It goes as such:
 centre_value: optional_conditional [|> or $] outcome
 centre_value can be replaced with a number to pattern match the centre value, similar to haskell
 otherwise conditionals can be done through the conditional part of the coroutine
 the triangle or pipeline operator here indicates a change in value, while the sign indicates a printing of a value
+@example: 3 * 8 == @north |> @left * 30
 
 # Directionals
 @ can be used to "load" a directional, or cell in a certain direction from the centre.
